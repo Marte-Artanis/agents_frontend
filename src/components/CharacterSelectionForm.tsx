@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ChatFormData } from '../types';
 import { fetchCharacterData, fetchHistoricalPeriods, fetchHistoricalFactors, fetchLanguages } from '../services/api';
+import './CharacterSelectionForm.css';
 
 interface CharacterSelectionFormProps {
     onSubmit: (data: ChatFormData) => void;
@@ -106,19 +107,19 @@ export default function CharacterSelectionForm({ onSubmit }: CharacterSelectionF
 
     if (loading) {
         return (
-            <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+            <div className="loading-container">
+                <div className="loading-spinner"></div>
             </div>
         );
     }
 
     if (error) {
         return (
-            <div className="text-center text-red-600 p-4">
+            <div className="error-container">
                 <p>{error}</p>
                 <button
                     onClick={() => window.location.reload()}
-                    className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                    className="retry-button"
                 >
                     Tentar Novamente
                 </button>
@@ -127,24 +128,20 @@ export default function CharacterSelectionForm({ onSubmit }: CharacterSelectionF
     }
 
     return (
-        <form onSubmit={handleSubmit} className="max-w-2xl mx-auto p-6 space-y-6">
-            <div className="space-y-4">
-                <h2 className="text-2xl font-bold text-gray-800">Escolha seu Personagem</h2>
+        <form onSubmit={handleSubmit} className="form-container">
+            <div className="form-content">
+                <h2 className="form-title">Escolha seu Personagem</h2>
                 
                 {/* Seleção de Personagem */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="character-grid">
                     {Object.entries(characters).map(([id, character]) => (
                         <div
                             key={id}
-                            className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                                selectedCharacter === id
-                                    ? 'border-blue-500 bg-blue-50'
-                                    : 'border-gray-200 hover:border-blue-300'
-                            }`}
+                            className={`character-card ${selectedCharacter === id ? 'selected' : ''}`}
                             onClick={() => handleCharacterChange(id)}
                         >
-                            <h3 className="font-bold text-lg">{character.name}</h3>
-                            <p className="text-sm text-gray-600">{character.description}</p>
+                            <h3 className="character-name">{character.name}</h3>
+                            <p className="character-description">{character.description}</p>
                         </div>
                     ))}
                 </div>
@@ -152,12 +149,12 @@ export default function CharacterSelectionForm({ onSubmit }: CharacterSelectionF
                 {selectedCharacter && (
                     <>
                         {/* Seleção de Período Histórico */}
-                        <div className="space-y-2">
-                            <label className="block text-sm font-medium text-gray-700">
+                        <div className="select-group">
+                            <label className="select-label">
                                 Período Histórico
                             </label>
                             <select
-                                className="w-full p-2 border rounded-md"
+                                className="select-input"
                                 value={formData.historicalPeriod}
                                 onChange={(e) => setFormData(prev => ({
                                     ...prev,
@@ -175,12 +172,12 @@ export default function CharacterSelectionForm({ onSubmit }: CharacterSelectionF
                         </div>
 
                         {/* Seleção de Fator Histórico */}
-                        <div className="space-y-2">
-                            <label className="block text-sm font-medium text-gray-700">
+                        <div className="select-group">
+                            <label className="select-label">
                                 Fator Histórico
                             </label>
                             <select
-                                className="w-full p-2 border rounded-md"
+                                className="select-input"
                                 value={formData.historicalFactor}
                                 onChange={(e) => setFormData(prev => ({
                                     ...prev,
@@ -198,12 +195,12 @@ export default function CharacterSelectionForm({ onSubmit }: CharacterSelectionF
                         </div>
 
                         {/* Seleção de Idioma */}
-                        <div className="space-y-2">
-                            <label className="block text-sm font-medium text-gray-700">
+                        <div className="select-group">
+                            <label className="select-label">
                                 Idioma
                             </label>
                             <select
-                                className="w-full p-2 border rounded-md"
+                                className="select-input"
                                 value={formData.language}
                                 onChange={(e) => setFormData(prev => ({
                                     ...prev,
@@ -219,9 +216,9 @@ export default function CharacterSelectionForm({ onSubmit }: CharacterSelectionF
                                 ))}
                             </select>
                             {formData.language && languages[formData.language] && (
-                                <div className="mt-2 text-sm text-gray-600">
-                                    <p className="font-medium">Exemplos:</p>
-                                    <ul className="list-disc list-inside">
+                                <div className="language-examples">
+                                    <p className="examples-title">Exemplos:</p>
+                                    <ul className="examples-list">
                                         {languages[formData.language].examples.map((example, index) => (
                                             <li key={index}>{example}</li>
                                         ))}
@@ -236,11 +233,7 @@ export default function CharacterSelectionForm({ onSubmit }: CharacterSelectionF
             <button
                 type="submit"
                 disabled={!selectedCharacter || !formData.historicalPeriod || !formData.historicalFactor || !formData.language}
-                className={`w-full py-2 px-4 rounded-md text-white font-medium ${
-                    selectedCharacter && formData.historicalPeriod && formData.historicalFactor && formData.language
-                        ? 'bg-blue-600 hover:bg-blue-700'
-                        : 'bg-gray-400 cursor-not-allowed'
-                }`}
+                className="submit-button"
             >
                 Iniciar Conversa
             </button>

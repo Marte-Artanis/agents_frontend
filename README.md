@@ -1,36 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Projecto Personagens LLM - Frontend
 
-## Getting Started
+Interface web para interagir com personagens do universo Tolkien, permitindo conversas contextualizadas baseadas em períodos históricos e fatores específicos.
 
-First, run the development server:
+## Tecnologias
 
+- Next.js 14
+- TypeScript
+- Tailwind CSS
+- API Integration com FastAPI backend
+
+## Configuração
+
+1. Instale as dependências:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Inicie o servidor de desenvolvimento:
+```bash
+npm run dev
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+O frontend estará disponível em `http://localhost:3000`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Funcionalidades
 
-## Learn More
+- Seleção de personagem (Ungoliant, Sauron, Azog, Saruman, Gollum)
+- Escolha de período histórico específico para cada personagem
+- Seleção de fatores históricos relevantes
+- Escolha do idioma para comunicação
+- Interface de chat em tempo real
+- Respostas contextualizadas baseadas nas escolhas do usuário
 
-To learn more about Next.js, take a look at the following resources:
+## Requisitos
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Node.js 18+
+- Backend rodando em `http://localhost:8001`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Estrutura do Projeto
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `/src/components` - Componentes React reutilizáveis
+- `/src/services` - Serviços de API e integrações
+- `/src/types` - Definições de tipos TypeScript
+- `/src/app` - Páginas e layouts da aplicação

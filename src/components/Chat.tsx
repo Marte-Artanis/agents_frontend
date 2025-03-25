@@ -1,122 +1,145 @@
-import { useState } from 'react';
-import { ChatFormData, ChatMessage } from '../types';
-import { sendMessage } from '../services/api';
+import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/router';
+import { useAuth } from '@/contexts/AuthContext';
+import { ChatFormData } from '@/types';
 import './Chat.css';
 
-interface ChatProps {
-    formData: ChatFormData;
-    onBack: () => void;
+interface Message {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
 }
 
-export default function Chat({ formData, onBack }: ChatProps) {
-    const [messages, setMessages] = useState<ChatMessage[]>([]);
-    const [inputMessage, setInputMessage] = useState('');
-    const [loading, setLoading] = useState(false);
+interface ChatProps {
+  formData: ChatFormData;
+}
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!inputMessage.trim() || loading) return;
+export default function Chat({ formData }: ChatProps) {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputMessage, setInputMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { token } = useAuth();
+  const router = useRouter();
 
-        const newUserMessage: ChatMessage = {
-            role: 'user',
-            content: inputMessage,
-            timestamp: new Date()
-        };
+  // Scroll para a última mensagem
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
-        setMessages(prev => [...prev, newUserMessage]);
-        setInputMessage('');
-        setLoading(true);
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
-        try {
-            const response = await sendMessage({
-                character: formData.character,
-                prompt: inputMessage,
-                historical_period: formData.historicalPeriod,
-                historical_factors: formData.historicalFactor,
-                language: formData.language
-            });
+  // Enviar mensagem
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputMessage.trim() || isLoading) return;
 
-            if (response.error) throw new Error(response.error);
-
-            const newAssistantMessage: ChatMessage = {
-                role: 'assistant',
-                content: response.data.response,
-                timestamp: new Date()
-            };
-
-            setMessages(prev => [...prev, newAssistantMessage]);
-        } catch (error) {
-            // Adicionar mensagem de erro ao chat
-            const errorMessage: ChatMessage = {
-                role: 'assistant',
-                content: 'Desculpe, ocorreu um erro ao processar sua mensagem. Por favor, tente novamente.',
-                timestamp: new Date()
-            };
-            setMessages(prev => [...prev, errorMessage]);
-        } finally {
-            setLoading(false);
-        }
+    const userMessage: Message = {
+      role: 'user',
+      content: inputMessage,
+      timestamp: new Date().toISOString()
     };
 
-    return (
-        <div className="chat-container">
-            {/* Header */}
-            <div className="chat-header">
-                <button
-                    onClick={onBack}
-                    className="back-button"
-                >
-                    ←
-                </button>
-                <h2 className="chat-title">
-                    Conversando com {formData.character}
-                </h2>
-            </div>
+    setMessages(prev => [...prev, userMessage]);
+    setInputMessage('');
+    setIsLoading(true);
 
-            {/* Chat Messages */}
-            <div className="messages-container">
-                {messages.map((message, index) => (
-                    <div
-                        key={index}
-                        className={`message ${message.role}`}
-                    >
-                        <div className={`message-bubble ${message.role}`}>
-                            <p className="message-content">{message.content}</p>
-                            <span className="message-timestamp">
-                                {message.timestamp.toLocaleTimeString()}
-                            </span>
-                        </div>
-                    </div>
-                ))}
-                {loading && (
-                    <div className="loading-indicator">
-                        <div className="loading-dots">
-                            <div className="dot"></div>
-                            <div className="dot"></div>
-                            <div className="dot"></div>
-                        </div>
-                    </div>
-                )}
-            </div>
+    try {
+      const response = await fetch('http://localhost:8001/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          prompt: inputMessage,
+          character: formData.character,
+          historical_period: formData.historicalPeriod,
+          historical_factors: formData.historicalFactor,
+          language: formData.language
+        })
+      });
 
-            {/* Input Form */}
-            <form onSubmit={handleSubmit} className="input-form">
-                <input
-                    type="text"
-                    value={inputMessage}
-                    onChange={(e) => setInputMessage(e.target.value)}
-                    placeholder="Digite sua mensagem..."
-                    className="message-input"
-                    disabled={loading}
-                />
-                <button
-                    type="submit"
-                    disabled={loading || !inputMessage.trim()}
-                    className="send-button"
-                >
-                    Enviar
-                </button>
-            </form>
-        </div>
-    );
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Erro ao enviar mensagem');
+      }
+
+      const data = await response.json();
+      
+      const assistantMessage: Message = {
+        role: 'assistant',
+        content: data.response,
+        timestamp: new Date().toISOString()
+      };
+
+      setMessages(prev => [...prev, assistantMessage]);
+    } catch (error) {
+      console.error('Erro:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="chat-container">
+      {/* Cabeçalho */}
+      <div className="chat-header">
+        <button
+          onClick={() => router.push('/characters')}
+          className="back-button"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#B8A088" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+        </button>
+        <h1 className="chat-title">Conversa com {formData.character}</h1>
+      </div>
+
+      {/* Container de mensagens */}
+      <div className="messages-container">
+        {messages.map((message, index) => (
+          <div key={index} className={`message ${message.role}`}>
+            <div className={`message-bubble ${message.role}`}>
+              <div className="message-content">{message.content}</div>
+              <span className="message-timestamp">
+                {new Date(message.timestamp).toLocaleTimeString()}
+              </span>
+            </div>
+          </div>
+        ))}
+        {isLoading && (
+          <div className="loading-indicator">
+            <div className="loading-dots">
+              <div className="dot"></div>
+              <div className="dot"></div>
+              <div className="dot"></div>
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Formulário de input */}
+      <form onSubmit={handleSubmit} className="input-form">
+        <input
+          type="text"
+          value={inputMessage}
+          onChange={(e) => setInputMessage(e.target.value)}
+          placeholder="Digite sua mensagem..."
+          className="message-input"
+          disabled={isLoading}
+        />
+        <button
+          type="submit"
+          disabled={!inputMessage.trim() || isLoading}
+          className="send-button"
+        >
+          Enviar
+        </button>
+      </form>
+    </div>
+  );
 } 

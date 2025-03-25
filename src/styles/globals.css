@@ -1,0 +1,214 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: #1A1A1A;
+  color: #E8DFD8;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.font-cinzel {
+  font-family: 'Cinzel', serif;
+}
+
+.btn-primary {
+  display: inline-block;
+  padding: 0.75rem 2rem;
+  background-color: #B8A088;
+  color: #1A1A1A;
+  border-radius: 0.25rem;
+  font-family: 'Cinzel', serif;
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  text-align: center;
+  min-width: 180px;
+}
+
+.btn-primary:hover {
+  background-color: #9A836C;
+  transform: translateY(-1px);
+}
+
+/* Variação do botão primário para o header */
+.btn-primary-small {
+  display: inline-block;
+  padding: 0.5rem 1.25rem;
+  background-color: #B8A088;
+  color: #1A1A1A;
+  border-radius: 0.25rem;
+  font-family: 'Cinzel', serif;
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.btn-primary-small:hover {
+  background-color: #9A836C;
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  padding: 0.75rem 1.5rem;
+  border: 1px solid #B8A088;
+  color: #B8A088;
+  border-radius: 0.25rem;
+  font-family: 'Cinzel', serif;
+  font-size: 0.875rem;
+  letter-spacing: 0.05em;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+}
+
+.btn-secondary:hover {
+  background-color: #B8A088;
+  color: white;
+}
+
+.nav-link {
+  font-family: 'Cinzel', serif;
+  font-size: 0.875rem;
+  letter-spacing: 0.1em;
+  color: #E8DFD8;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  opacity: 0.9;
+  padding: 0.5rem 1rem;
+}
+
+.nav-link:hover {
+  color: #B8A088;
+  opacity: 1;
+}
+
+.heading-primary {
+  font-family: 'Cinzel', serif;
+  font-size: 3.5rem;
+  text-align: center;
+  letter-spacing: 0.05em;
+  line-height: 1.3;
+  color: #E8DFD8;
+  margin-bottom: 2rem;
+  font-weight: 600;
+}
+
+.heading-secondary {
+  color: #B8A088;
+  font-family: 'Cinzel', serif;
+  font-size: 2.5rem;
+  letter-spacing: 0.05em;
+  line-height: 1.3;
+  margin-bottom: 1rem;
+}
+
+.container-custom {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+.nav-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 0;
+}
+
+.logo {
+  font-family: 'Cinzel', serif;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: #E8DFD8;
+  transition: color 0.3s ease;
+}
+
+.logo:hover {
+  color: #B8A088;
+}
+
+/* Animações */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 1s ease-in;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+}
+
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 4s ease-in-out infinite;
+}
+
+@keyframes pathDot {
+  0% {
+    transform: translateY(0);
+    opacity: 0.3;
+  }
+  50% {
+    transform: translateY(100px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 0.3;
+  }
+}
+
+@keyframes shine {
+  to {
+    background-position: 200% center;
+  }
+} 

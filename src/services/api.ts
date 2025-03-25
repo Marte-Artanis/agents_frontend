@@ -2,6 +2,40 @@ import { ApiResponse } from '../types';
 
 const API_BASE_URL = 'http://localhost:8001';
 
+// Funções de Sessão
+export const createSession = async () => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/new-session`);
+        const data = await response.json();
+        return { data };
+    } catch (error) {
+        return { error: 'Erro ao criar sessão' };
+    }
+};
+
+export const validateSession = async (sessionId: string) => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/session/${sessionId}`);
+        const data = await response.json();
+        return { data };
+    } catch (error) {
+        return { error: 'Erro ao validar sessão' };
+    }
+};
+
+export const deleteSession = async (sessionId: string) => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/session/${sessionId}`, {
+            method: 'DELETE'
+        });
+        const data = await response.json();
+        return { data };
+    } catch (error) {
+        return { error: 'Erro ao deletar sessão' };
+    }
+};
+
+// Funções de Dados
 export const fetchCharacterData = async () => {
     try {
         const response = await fetch(`${API_BASE_URL}/characters`);
@@ -42,12 +76,14 @@ export const fetchLanguages = async () => {
     }
 };
 
+// Função de Chat
 export const sendMessage = async (chatData: {
     character: string;
     prompt: string;
     historical_period: string;
     historical_factors: string;
     language: string;
+    session_id: string;
 }) => {
     try {
         const response = await fetch(`${API_BASE_URL}/chat`, {
@@ -57,9 +93,14 @@ export const sendMessage = async (chatData: {
             },
             body: JSON.stringify(chatData),
         });
+
+        if (response.status === 400) {
+            throw new Error('Sessão inválida ou expirada');
+        }
+
         const data = await response.json();
         return { data };
     } catch (error) {
-        return { error: 'Erro ao enviar mensagem' };
+        return { error: error instanceof Error ? error.message : 'Erro ao enviar mensagem' };
     }
 }; 

@@ -5,6 +5,7 @@ import './CharacterSelectionForm.css';
 
 interface CharacterSelectionFormProps {
     onSubmit: (data: ChatFormData) => void;
+    token: string;
 }
 
 interface Character {
@@ -26,7 +27,7 @@ interface Languages {
     [key: string]: Language;
 }
 
-export default function CharacterSelectionForm({ onSubmit }: CharacterSelectionFormProps) {
+export default function CharacterSelectionForm({ onSubmit, token }: CharacterSelectionFormProps) {
     const [selectedCharacter, setSelectedCharacter] = useState<string>('');
     const [characters, setCharacters] = useState<Characters>({});
     const [periods, setPeriods] = useState<string[]>([]);
@@ -42,53 +43,92 @@ export default function CharacterSelectionForm({ onSubmit }: CharacterSelectionF
         language: ''
     });
 
-    // Carregar personagens e idiomas ao montar o componente
+    // Carregar personagens e idiomas
     useEffect(() => {
         const loadInitialData = async () => {
+            if (!token) return;
+            
             try {
                 const [charactersResponse, languagesResponse] = await Promise.all([
-                    fetchCharacterData(),
-                    fetchLanguages()
+                    fetch('http://localhost:8001/characters', {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    }).then(res => res.json()),
+                    fetch('http://localhost:8001/languages', {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    }).then(res => res.json())
                 ]);
 
                 if (charactersResponse.error) throw new Error(charactersResponse.error);
                 if (languagesResponse.error) throw new Error(languagesResponse.error);
 
-                setCharacters(charactersResponse.data);
-                setLanguages(languagesResponse.data);
+                setCharacters(charactersResponse);
+                setLanguages(languagesResponse);
             } catch (err) {
                 setError('Erro ao carregar dados iniciais');
+                console.error('Erro ao carregar dados:', err);
             } finally {
                 setLoading(false);
             }
         };
 
         loadInitialData();
-    }, []);
+    }, [token]);
 
     // Carregar períodos e fatores quando um personagem é selecionado
     useEffect(() => {
-        if (selectedCharacter) {
-            const loadCharacterData = async () => {
-                try {
-                    const [periodsResponse, factorsResponse] = await Promise.all([
-                        fetchHistoricalPeriods(selectedCharacter),
-                        fetchHistoricalFactors(selectedCharacter)
-                    ]);
+        const loadCharacterData = async () => {
+            if (!selectedCharacter || !token) return;
+            
+            try {
+                console.log('Carregando dados para o personagem:', selectedCharacter);
+                
+                const [periodsRes, factorsRes] = await Promise.all([
+                    fetch(`http://localhost:8001/historical-periods/${selectedCharacter}`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    }),
+                    fetch(`http://localhost:8001/historical-factors/${selectedCharacter}`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    })
+                ]);
 
-                    if (periodsResponse.error) throw new Error(periodsResponse.error);
-                    if (factorsResponse.error) throw new Error(factorsResponse.error);
-
-                    setPeriods(periodsResponse.data);
-                    setFactors(factorsResponse.data);
-                } catch (err) {
-                    setError('Erro ao carregar dados do personagem');
+                if (!periodsRes.ok || !factorsRes.ok) {
+                    throw new Error('Falha ao carregar dados');
                 }
-            };
 
-            loadCharacterData();
-        }
-    }, [selectedCharacter]);
+                const periodsResponse = await periodsRes.json();
+                const factorsResponse = await factorsRes.json();
+
+                console.log('Resposta bruta períodos:', periodsResponse);
+                console.log('Resposta bruta fatores:', factorsResponse);
+
+                // Processar a resposta considerando que pode ser um array direto
+                const periodsData = Array.isArray(periodsResponse) ? periodsResponse :
+                                  periodsResponse.historical_periods || periodsResponse.data || [];
+                                  
+                const factorsData = Array.isArray(factorsResponse) ? factorsResponse :
+                                   factorsResponse.historical_factors || factorsResponse.data || [];
+
+                console.log('Períodos processados:', periodsData);
+                console.log('Fatores processados:', factorsData);
+
+                setPeriods(periodsData);
+                setFactors(factorsData);
+            } catch (err) {
+                console.error('Erro detalhado ao carregar dados do personagem:', err);
+                setError('Erro ao carregar dados do personagem');
+            }
+        };
+
+        loadCharacterData();
+    }, [selectedCharacter, token]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -96,6 +136,7 @@ export default function CharacterSelectionForm({ onSubmit }: CharacterSelectionF
     };
 
     const handleCharacterChange = (character: string) => {
+        console.log('Clique no personagem:', character);
         setSelectedCharacter(character);
         setFormData(prev => ({
             ...prev,
@@ -117,10 +158,7 @@ export default function CharacterSelectionForm({ onSubmit }: CharacterSelectionF
         return (
             <div className="error-container">
                 <p>{error}</p>
-                <button
-                    onClick={() => window.location.reload()}
-                    className="retry-button"
-                >
+                <button onClick={() => window.location.reload()} className="retry-button">
                     Tentar Novamente
                 </button>
             </div>
@@ -132,89 +170,90 @@ export default function CharacterSelectionForm({ onSubmit }: CharacterSelectionF
             <div className="form-content">
                 <h2 className="form-title">Escolha seu Personagem</h2>
                 
-                {/* Seleção de Personagem */}
+                {/* Grid de personagens */}
                 <div className="character-grid">
                     {Object.entries(characters).map(([id, character]) => (
-                        <div
+                        <button
                             key={id}
+                            type="button"
                             className={`character-card ${selectedCharacter === id ? 'selected' : ''}`}
                             onClick={() => handleCharacterChange(id)}
                         >
                             <h3 className="character-name">{character.name}</h3>
                             <p className="character-description">{character.description}</p>
-                        </div>
+                        </button>
                     ))}
                 </div>
 
                 {selectedCharacter && (
                     <>
-                        {/* Seleção de Período Histórico */}
+                        {/* Período Histórico */}
                         <div className="select-group">
                             <label className="select-label">
                                 Período Histórico
+                                <select
+                                    className="select-input"
+                                    value={formData.historicalPeriod}
+                                    onChange={(e) => setFormData(prev => ({
+                                        ...prev,
+                                        historicalPeriod: e.target.value
+                                    }))}
+                                    required
+                                >
+                                    <option value="">Selecione um período</option>
+                                    {Array.isArray(periods) && periods.map((period) => (
+                                        <option key={period} value={period}>
+                                            {period}
+                                        </option>
+                                    ))}
+                                </select>
                             </label>
-                            <select
-                                className="select-input"
-                                value={formData.historicalPeriod}
-                                onChange={(e) => setFormData(prev => ({
-                                    ...prev,
-                                    historicalPeriod: e.target.value
-                                }))}
-                                required
-                            >
-                                <option value="">Selecione um período</option>
-                                {periods.map((period) => (
-                                    <option key={period} value={period}>
-                                        {period}
-                                    </option>
-                                ))}
-                            </select>
                         </div>
 
-                        {/* Seleção de Fator Histórico */}
+                        {/* Fator Histórico */}
                         <div className="select-group">
                             <label className="select-label">
                                 Fator Histórico
+                                <select
+                                    className="select-input"
+                                    value={formData.historicalFactor}
+                                    onChange={(e) => setFormData(prev => ({
+                                        ...prev,
+                                        historicalFactor: e.target.value
+                                    }))}
+                                    required
+                                >
+                                    <option value="">Selecione um fator</option>
+                                    {Array.isArray(factors) && factors.map((factor) => (
+                                        <option key={factor} value={factor}>
+                                            {factor}
+                                        </option>
+                                    ))}
+                                </select>
                             </label>
-                            <select
-                                className="select-input"
-                                value={formData.historicalFactor}
-                                onChange={(e) => setFormData(prev => ({
-                                    ...prev,
-                                    historicalFactor: e.target.value
-                                }))}
-                                required
-                            >
-                                <option value="">Selecione um fator</option>
-                                {factors.map((factor) => (
-                                    <option key={factor} value={factor}>
-                                        {factor}
-                                    </option>
-                                ))}
-                            </select>
                         </div>
 
-                        {/* Seleção de Idioma */}
+                        {/* Idioma */}
                         <div className="select-group">
                             <label className="select-label">
                                 Idioma
+                                <select
+                                    className="select-input"
+                                    value={formData.language}
+                                    onChange={(e) => setFormData(prev => ({
+                                        ...prev,
+                                        language: e.target.value
+                                    }))}
+                                    required
+                                >
+                                    <option value="">Selecione um idioma</option>
+                                    {Object.entries(languages).map(([id, language]) => (
+                                        <option key={id} value={id}>
+                                            {language.name} - {language.description}
+                                        </option>
+                                    ))}
+                                </select>
                             </label>
-                            <select
-                                className="select-input"
-                                value={formData.language}
-                                onChange={(e) => setFormData(prev => ({
-                                    ...prev,
-                                    language: e.target.value
-                                }))}
-                                required
-                            >
-                                <option value="">Selecione um idioma</option>
-                                {Object.entries(languages).map(([id, language]) => (
-                                    <option key={id} value={id}>
-                                        {language.name} - {language.description}
-                                    </option>
-                                ))}
-                            </select>
                             {formData.language && languages[formData.language] && (
                                 <div className="language-examples">
                                     <p className="examples-title">Exemplos:</p>
@@ -239,4 +278,4 @@ export default function CharacterSelectionForm({ onSubmit }: CharacterSelectionF
             </button>
         </form>
     );
-} 
+}

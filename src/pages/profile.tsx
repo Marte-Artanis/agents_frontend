@@ -1,5 +1,5 @@
-import ProfileForm from '../components/ProfileForm';
-import ProtectedRoute from '../components/ProtectedRoute';
+import { ProfileForm } from '@/components/profile';
+import { ProtectedRoute } from '@/components/common/ProtectedRoute';
 
 export default function Profile() {
   return (

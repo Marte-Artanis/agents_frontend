@@ -1,9 +1,10 @@
 import '@/styles/globals.css';
 import type { AppProps } from 'next/app';
 import { Inter } from 'next/font/google';
-import Layout from '@/components/Layout';
+import { Layout } from '@/components/common/Layout';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { useRouter } from 'next/router';
+import { ProtectedRoute } from '@/components/common/ProtectedRoute';
 
 // Importar fonte Inter
 const inter = Inter({

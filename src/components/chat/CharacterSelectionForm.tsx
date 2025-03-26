@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { ChatFormData } from '../types';
-import { fetchCharacterData, fetchHistoricalPeriods, fetchHistoricalFactors, fetchLanguages } from '../services/api';
-import './CharacterSelectionForm.css';
+import { ChatFormData } from '@/types';
+import { fetchCharacterData, fetchHistoricalPeriods, fetchHistoricalFactors, fetchLanguages } from '@/services/api';
+import styles from './CharacterSelectionForm.module.css';
 
 interface CharacterSelectionFormProps {
     onSubmit: (data: ChatFormData) => void;
@@ -84,8 +84,6 @@ export default function CharacterSelectionForm({ onSubmit, token }: CharacterSel
             if (!selectedCharacter || !token) return;
             
             try {
-                console.log('Carregando dados para o personagem:', selectedCharacter);
-                
                 const [periodsRes, factorsRes] = await Promise.all([
                     fetch(`http://localhost:8001/historical-periods/${selectedCharacter}`, {
                         headers: {
@@ -106,18 +104,11 @@ export default function CharacterSelectionForm({ onSubmit, token }: CharacterSel
                 const periodsResponse = await periodsRes.json();
                 const factorsResponse = await factorsRes.json();
 
-                console.log('Resposta bruta períodos:', periodsResponse);
-                console.log('Resposta bruta fatores:', factorsResponse);
-
-                // Processar a resposta considerando que pode ser um array direto
                 const periodsData = Array.isArray(periodsResponse) ? periodsResponse :
                                   periodsResponse.historical_periods || periodsResponse.data || [];
                                   
                 const factorsData = Array.isArray(factorsResponse) ? factorsResponse :
                                    factorsResponse.historical_factors || factorsResponse.data || [];
-
-                console.log('Períodos processados:', periodsData);
-                console.log('Fatores processados:', factorsData);
 
                 setPeriods(periodsData);
                 setFactors(factorsData);
@@ -136,7 +127,6 @@ export default function CharacterSelectionForm({ onSubmit, token }: CharacterSel
     };
 
     const handleCharacterChange = (character: string) => {
-        console.log('Clique no personagem:', character);
         setSelectedCharacter(character);
         setFormData(prev => ({
             ...prev,
@@ -148,17 +138,17 @@ export default function CharacterSelectionForm({ onSubmit, token }: CharacterSel
 
     if (loading) {
         return (
-            <div className="loading-container">
-                <div className="loading-spinner"></div>
+            <div className={styles.loadingContainer}>
+                <div className={styles.loadingSpinner}></div>
             </div>
         );
     }
 
     if (error) {
         return (
-            <div className="error-container">
+            <div className={styles.errorContainer}>
                 <p>{error}</p>
-                <button onClick={() => window.location.reload()} className="retry-button">
+                <button onClick={() => window.location.reload()} className={styles.retryButton}>
                     Tentar Novamente
                 </button>
             </div>
@@ -166,21 +156,21 @@ export default function CharacterSelectionForm({ onSubmit, token }: CharacterSel
     }
 
     return (
-        <form onSubmit={handleSubmit} className="form-container">
-            <div className="form-content">
-                <h2 className="form-title">Escolha seu Personagem</h2>
+        <form onSubmit={handleSubmit} className={styles.formContainer}>
+            <div className={styles.formContent}>
+                <h2 className={styles.formTitle}>Escolha seu Personagem</h2>
                 
                 {/* Grid de personagens */}
-                <div className="character-grid">
+                <div className={styles.characterGrid}>
                     {Object.entries(characters).map(([id, character]) => (
                         <button
                             key={id}
                             type="button"
-                            className={`character-card ${selectedCharacter === id ? 'selected' : ''}`}
+                            className={`${styles.characterCard} ${selectedCharacter === id ? styles.selected : ''}`}
                             onClick={() => handleCharacterChange(id)}
                         >
-                            <h3 className="character-name">{character.name}</h3>
-                            <p className="character-description">{character.description}</p>
+                            <h3 className={styles.characterName}>{character.name}</h3>
+                            <p className={styles.characterDescription}>{character.description}</p>
                         </button>
                     ))}
                 </div>
@@ -188,11 +178,11 @@ export default function CharacterSelectionForm({ onSubmit, token }: CharacterSel
                 {selectedCharacter && (
                     <>
                         {/* Período Histórico */}
-                        <div className="select-group">
-                            <label className="select-label">
+                        <div className={styles.selectGroup}>
+                            <label className={styles.selectLabel}>
                                 Período Histórico
                                 <select
-                                    className="select-input"
+                                    className={styles.selectInput}
                                     value={formData.historicalPeriod}
                                     onChange={(e) => setFormData(prev => ({
                                         ...prev,
@@ -211,11 +201,11 @@ export default function CharacterSelectionForm({ onSubmit, token }: CharacterSel
                         </div>
 
                         {/* Fator Histórico */}
-                        <div className="select-group">
-                            <label className="select-label">
+                        <div className={styles.selectGroup}>
+                            <label className={styles.selectLabel}>
                                 Fator Histórico
                                 <select
-                                    className="select-input"
+                                    className={styles.selectInput}
                                     value={formData.historicalFactor}
                                     onChange={(e) => setFormData(prev => ({
                                         ...prev,
@@ -234,11 +224,11 @@ export default function CharacterSelectionForm({ onSubmit, token }: CharacterSel
                         </div>
 
                         {/* Idioma */}
-                        <div className="select-group">
-                            <label className="select-label">
+                        <div className={styles.selectGroup}>
+                            <label className={styles.selectLabel}>
                                 Idioma
                                 <select
-                                    className="select-input"
+                                    className={styles.selectInput}
                                     value={formData.language}
                                     onChange={(e) => setFormData(prev => ({
                                         ...prev,
@@ -249,33 +239,19 @@ export default function CharacterSelectionForm({ onSubmit, token }: CharacterSel
                                     <option value="">Selecione um idioma</option>
                                     {Object.entries(languages).map(([id, language]) => (
                                         <option key={id} value={id}>
-                                            {language.name} - {language.description}
+                                            {language.name}
                                         </option>
                                     ))}
                                 </select>
                             </label>
-                            {formData.language && languages[formData.language] && (
-                                <div className="language-examples">
-                                    <p className="examples-title">Exemplos:</p>
-                                    <ul className="examples-list">
-                                        {languages[formData.language].examples.map((example, index) => (
-                                            <li key={index}>{example}</li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
                         </div>
+
+                        <button type="submit" className={styles.submitButton}>
+                            Iniciar Conversa
+                        </button>
                     </>
                 )}
             </div>
-
-            <button
-                type="submit"
-                disabled={!selectedCharacter || !formData.historicalPeriod || !formData.historicalFactor || !formData.language}
-                className="submit-button"
-            >
-                Iniciar Conversa
-            </button>
         </form>
     );
-}
+} 

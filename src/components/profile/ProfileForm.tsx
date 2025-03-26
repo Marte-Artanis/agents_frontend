@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { FaPencilAlt } from 'react-icons/fa';
 import styles from './ProfileForm.module.css';
 
@@ -12,7 +12,6 @@ interface EditingFields {
 export default function ProfileForm() {
   const { user } = useAuth();
   
-  // Adicionando console.logs para debug
   console.log('Dados do usuário:', user);
   console.log('Data de nascimento:', user?.birth_date);
   console.log('Tipo da data:', typeof user?.birth_date);

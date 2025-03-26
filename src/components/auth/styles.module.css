@@ -1,0 +1,118 @@
+.container {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #1A1A1A 0%, #2C2C2C 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.formCard {
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+  border-radius: 1rem;
+  border: 1px solid rgba(184, 160, 136, 0.1);
+  padding: 3rem;
+  width: 100%;
+  max-width: 480px;
+}
+
+.title {
+  color: #B8A088;
+  font-family: 'Cinzel', serif;
+  font-size: 2.5rem;
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.error {
+  background: rgba(220, 38, 38, 0.1);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  color: #ef4444;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #E8DFD8;
+  font-size: 0.875rem;
+}
+
+.input {
+  width: 100%;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(184, 160, 136, 0.2);
+  border-radius: 0.5rem;
+  color: #E8DFD8;
+  font-size: 1rem;
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+.input:focus {
+  border-color: #B8A088;
+}
+
+.button {
+  width: 100%;
+  padding: 0.875rem;
+  background: #B8A088;
+  border: none;
+  border-radius: 0.5rem;
+  color: #1A1A1A;
+  font-size: 1rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 1rem;
+}
+
+.button:hover {
+  background: #A38B73;
+}
+
+.buttonLoading {
+  background: #8B7B6A;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.registerText {
+  text-align: center;
+  margin-top: 2rem;
+  color: rgba(232, 223, 216, 0.8);
+  font-size: 0.875rem;
+}
+
+.link {
+  color: #B8A088;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.link:hover {
+  color: #A38B73;
+}
+
+.gridContainer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+} 

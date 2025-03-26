@@ -2,37 +2,28 @@ import { ReactNode } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/router';
+import styles from './styles.module.css';
 
 interface LayoutProps {
   children: ReactNode;
   hideNav?: boolean;
 }
 
-export default function Layout({ children, hideNav = false }: LayoutProps) {
+export function Layout({ children, hideNav = false }: LayoutProps) {
   const { user, logout } = useAuth();
   const router = useRouter();
   const isHomePage = router.pathname === '/';
 
   return (
-    <div style={{ 
-      minHeight: '100vh',
-      background: 'linear-gradient(180deg, #1A1A1A 0%, #2C2C2C 100%)',
-      position: 'relative',
-      overflow: 'hidden'
-    }}>
+    <div className={styles.container}>
       {/* Efeito de fundo */}
-      <div style={{
-        position: 'absolute',
-        inset: 0,
-        backgroundImage: 'url("/images/stars.png")',
-        opacity: 0.3
-      }} className="animate-pulse-slow"></div>
+      <div className={`${styles.backgroundEffect} animate-pulse-slow`}></div>
       
       {/* Navegação */}
       {!hideNav && (
         <header className="container-custom" style={{ position: 'relative', zIndex: 2 }}>
           <nav className="nav-container">
-            <Link href="/" className="logo">
+            <Link href="/" className="logo" style={{ cursor: 'pointer' }}>
               ARDA
             </Link>
             <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>

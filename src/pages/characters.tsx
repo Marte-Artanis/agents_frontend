@@ -1,7 +1,7 @@
 import { useRouter } from 'next/router';
 import { useAuth } from '@/contexts/AuthContext';
-import ProtectedRoute from '@/components/ProtectedRoute';
-import CharacterSelectionForm from '@/components/CharacterSelectionForm';
+import { ProtectedRoute } from '@/components/common/ProtectedRoute';
+import CharacterSelectionForm from '@/components/chat/CharacterSelectionForm';
 import { ChatFormData } from '@/types';
 
 export default function Characters() {

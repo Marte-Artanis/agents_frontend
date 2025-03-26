@@ -1,7 +1,7 @@
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
-import Chat from '@/components/Chat';
-import ProtectedRoute from '@/components/ProtectedRoute';
+import { Chat } from '@/components/chat';
+import { ProtectedRoute } from '@/components/common/ProtectedRoute';
 import { ChatFormData } from '@/types';
 
 export default function ChatPage() {

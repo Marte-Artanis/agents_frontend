@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/contexts/AuthContext';
 import { ChatFormData } from '@/types';
-import './Chat.css';
+import styles from './Chat.module.css';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -84,38 +84,38 @@ export default function Chat({ formData }: ChatProps) {
   };
 
   return (
-    <div className="chat-container">
+    <div className={styles.chatContainer}>
       {/* Cabeçalho */}
-      <div className="chat-header">
+      <div className={styles.chatHeader}>
         <button
           onClick={() => router.push('/characters')}
-          className="back-button"
+          className={styles.backButton}
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#B8A088" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M19 12H5M12 19l-7-7 7-7"/>
           </svg>
         </button>
-        <h1 className="chat-title">Conversa com {formData.character}</h1>
+        <h1 className={styles.chatTitle}>Conversa com {formData.character}</h1>
       </div>
 
       {/* Container de mensagens */}
-      <div className="messages-container">
+      <div className={styles.messagesContainer}>
         {messages.map((message, index) => (
-          <div key={index} className={`message ${message.role}`}>
-            <div className={`message-bubble ${message.role}`}>
-              <div className="message-content">{message.content}</div>
-              <span className="message-timestamp">
+          <div key={index} className={`${styles.message} ${styles[message.role]}`}>
+            <div className={`${styles.messageBubble} ${styles[message.role]}`}>
+              <div className={styles.messageContent}>{message.content}</div>
+              <span className={styles.messageTimestamp}>
                 {new Date(message.timestamp).toLocaleTimeString()}
               </span>
             </div>
           </div>
         ))}
         {isLoading && (
-          <div className="loading-indicator">
-            <div className="loading-dots">
-              <div className="dot"></div>
-              <div className="dot"></div>
-              <div className="dot"></div>
+          <div className={styles.loadingIndicator}>
+            <div className={styles.loadingDots}>
+              <div className={styles.dot}></div>
+              <div className={styles.dot}></div>
+              <div className={styles.dot}></div>
             </div>
           </div>
         )}
@@ -123,19 +123,19 @@ export default function Chat({ formData }: ChatProps) {
       </div>
 
       {/* Formulário de input */}
-      <form onSubmit={handleSubmit} className="input-form">
+      <form onSubmit={handleSubmit} className={styles.inputForm}>
         <input
           type="text"
           value={inputMessage}
           onChange={(e) => setInputMessage(e.target.value)}
           placeholder="Digite sua mensagem..."
-          className="message-input"
+          className={styles.messageInput}
           disabled={isLoading}
         />
         <button
           type="submit"
           disabled={!inputMessage.trim() || isLoading}
-          className="send-button"
+          className={styles.sendButton}
         >
           Enviar
         </button>

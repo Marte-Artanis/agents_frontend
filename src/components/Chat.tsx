@@ -54,8 +54,8 @@ export default function Chat({ formData }: ChatProps) {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          prompt: inputMessage,
           character: formData.character,
+          prompt: inputMessage,
           historical_period: formData.historicalPeriod,
           historical_factors: formData.historicalFactor,
           language: formData.language

@@ -20,14 +20,21 @@ export function LoginForm() {
     setIsLoading(true);
     
     try {
-      const result = await login(formData.email, formData.password);
-      if (result.error) {
-        setError(result.error);
+      console.log('Iniciando login...');
+      const { error: loginError, success } = await login(formData.email, formData.password);
+      
+      console.log('Resposta do login:', { error: loginError, success });
+      
+      if (loginError) {
+        setError(loginError);
+      } else if (success) {
+        router.push('/chat');
       } else {
-        router.push('/characters');
+        setError('Erro desconhecido ao fazer login');
       }
     } catch (error: any) {
-      setError('Ocorreu um erro inesperado. Tente novamente.');
+      console.error('Erro no login:', error);
+      setError(error.message || 'Ocorreu um erro inesperado. Tente novamente.');
     } finally {
       setIsLoading(false);
     }
@@ -71,6 +78,8 @@ export function LoginForm() {
               value={formData.email}
               onChange={handleChange}
               className={styles.input}
+              disabled={isLoading}
+              autoComplete="email"
             />
           </div>
 
@@ -86,6 +95,9 @@ export function LoginForm() {
               value={formData.password}
               onChange={handleChange}
               className={styles.input}
+              disabled={isLoading}
+              autoComplete="current-password"
+              minLength={6}
             />
           </div>
 

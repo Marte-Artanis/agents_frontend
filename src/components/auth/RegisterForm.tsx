@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import styles from './styles.module.css';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function RegisterForm() {
   const [formData, setFormData] = useState({
@@ -12,35 +13,36 @@ export function RegisterForm() {
     birth_date: ''
   });
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const { register } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true);
     
     try {
+      // Converter a string da data para objeto Date
       const formattedData = {
         ...formData,
-        birth_date: formData.birth_date
+        birth_date: new Date(formData.birth_date)
       };
 
-      const response = await fetch('http://localhost:8001/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formattedData),
-      });
+      const { error: registerError, success } = await register(formattedData);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Erro ao registrar');
+      if (registerError) {
+        throw new Error(registerError);
       }
 
-      router.push('/login');
+      if (success) {
+        router.push('/chat');
+      }
     } catch (error: any) {
       console.error('Erro:', error);
-      setError('Erro ao criar conta. Tente novamente.');
+      setError(error.message || 'Erro ao criar conta. Tente novamente.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -83,6 +85,7 @@ export function RegisterForm() {
                 value={formData.first_name}
                 onChange={handleChange}
                 className={styles.input}
+                disabled={isLoading}
               />
             </div>
 
@@ -98,6 +101,7 @@ export function RegisterForm() {
                 value={formData.last_name}
                 onChange={handleChange}
                 className={styles.input}
+                disabled={isLoading}
               />
             </div>
           </div>
@@ -114,6 +118,7 @@ export function RegisterForm() {
               value={formData.birth_date}
               onChange={handleChange}
               className={styles.input}
+              disabled={isLoading}
             />
           </div>
 
@@ -129,6 +134,7 @@ export function RegisterForm() {
               value={formData.email}
               onChange={handleChange}
               className={styles.input}
+              disabled={isLoading}
             />
           </div>
 
@@ -144,11 +150,17 @@ export function RegisterForm() {
               value={formData.password}
               onChange={handleChange}
               className={styles.input}
+              disabled={isLoading}
+              minLength={6}
             />
           </div>
 
-          <button type="submit" className={styles.button}>
-            Criar conta
+          <button 
+            type="submit" 
+            className={styles.button}
+            disabled={isLoading}
+          >
+            {isLoading ? 'Criando conta...' : 'Criar conta'}
           </button>
         </form>
 

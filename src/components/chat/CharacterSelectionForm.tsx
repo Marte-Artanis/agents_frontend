@@ -46,27 +46,17 @@ export default function CharacterSelectionForm({ onSubmit, token }: CharacterSel
     // Carregar personagens e idiomas
     useEffect(() => {
         const loadInitialData = async () => {
-            if (!token) return;
-            
             try {
                 const [charactersResponse, languagesResponse] = await Promise.all([
-                    fetch('http://localhost:8001/characters', {
-                        headers: {
-                            'Authorization': `Bearer ${token}`
-                        }
-                    }).then(res => res.json()),
-                    fetch('http://localhost:8001/languages', {
-                        headers: {
-                            'Authorization': `Bearer ${token}`
-                        }
-                    }).then(res => res.json())
+                    fetchCharacterData(),
+                    fetchLanguages()
                 ]);
 
                 if (charactersResponse.error) throw new Error(charactersResponse.error);
                 if (languagesResponse.error) throw new Error(languagesResponse.error);
 
-                setCharacters(charactersResponse);
-                setLanguages(languagesResponse);
+                setCharacters(charactersResponse.data);
+                setLanguages(languagesResponse.data);
             } catch (err) {
                 setError('Erro ao carregar dados iniciais');
                 console.error('Erro ao carregar dados:', err);
@@ -76,53 +66,40 @@ export default function CharacterSelectionForm({ onSubmit, token }: CharacterSel
         };
 
         loadInitialData();
-    }, [token]);
+    }, []);
 
     // Carregar períodos e fatores quando um personagem é selecionado
     useEffect(() => {
         const loadCharacterData = async () => {
-            if (!selectedCharacter || !token) return;
+            if (!selectedCharacter) return;
             
             try {
-                const [periodsRes, factorsRes] = await Promise.all([
-                    fetch(`http://localhost:8001/historical-periods/${selectedCharacter}`, {
-                        headers: {
-                            'Authorization': `Bearer ${token}`
-                        }
-                    }),
-                    fetch(`http://localhost:8001/historical-factors/${selectedCharacter}`, {
-                        headers: {
-                            'Authorization': `Bearer ${token}`
-                        }
-                    })
+                const [periodsResponse, factorsResponse] = await Promise.all([
+                    fetchHistoricalPeriods(selectedCharacter),
+                    fetchHistoricalFactors(selectedCharacter)
                 ]);
 
-                if (!periodsRes.ok || !factorsRes.ok) {
-                    throw new Error('Falha ao carregar dados');
-                }
+                if (periodsResponse.error) throw new Error(periodsResponse.error);
+                if (factorsResponse.error) throw new Error(factorsResponse.error);
 
-                const periodsResponse = await periodsRes.json();
-                const factorsResponse = await factorsRes.json();
-
-                const periodsData = Array.isArray(periodsResponse) ? periodsResponse :
-                                  periodsResponse.historical_periods || periodsResponse.data || [];
-                                  
-                const factorsData = Array.isArray(factorsResponse) ? factorsResponse :
-                                   factorsResponse.historical_factors || factorsResponse.data || [];
-
-                setPeriods(periodsData);
-                setFactors(factorsData);
+                setPeriods(periodsResponse.data);
+                setFactors(factorsResponse.data);
             } catch (err) {
-                console.error('Erro detalhado ao carregar dados do personagem:', err);
+                console.error('Erro ao carregar dados do personagem:', err);
                 setError('Erro ao carregar dados do personagem');
             }
         };
 
         loadCharacterData();
-    }, [selectedCharacter, token]);
+    }, [selectedCharacter]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        if (!formData.character || !formData.historicalPeriod || !formData.historicalFactor || !formData.language) {
+            setError('Por favor, preencha todos os campos');
+            return;
+        }
+        console.log('Enviando dados:', formData);
         onSubmit(formData);
     };
 
@@ -191,7 +168,7 @@ export default function CharacterSelectionForm({ onSubmit, token }: CharacterSel
                                     required
                                 >
                                     <option value="">Selecione um período</option>
-                                    {Array.isArray(periods) && periods.map((period) => (
+                                    {periods.map((period) => (
                                         <option key={period} value={period}>
                                             {period}
                                         </option>
@@ -200,10 +177,10 @@ export default function CharacterSelectionForm({ onSubmit, token }: CharacterSel
                             </label>
                         </div>
 
-                        {/* Fator Histórico */}
+                        {/* Fatores Históricos */}
                         <div className={styles.selectGroup}>
                             <label className={styles.selectLabel}>
-                                Fator Histórico
+                                Fatores Históricos
                                 <select
                                     className={styles.selectInput}
                                     value={formData.historicalFactor}
@@ -214,7 +191,7 @@ export default function CharacterSelectionForm({ onSubmit, token }: CharacterSel
                                     required
                                 >
                                     <option value="">Selecione um fator</option>
-                                    {Array.isArray(factors) && factors.map((factor) => (
+                                    {factors.map((factor) => (
                                         <option key={factor} value={factor}>
                                             {factor}
                                         </option>
@@ -247,7 +224,7 @@ export default function CharacterSelectionForm({ onSubmit, token }: CharacterSel
                         </div>
 
                         <button type="submit" className={styles.submitButton}>
-                            Iniciar Conversa
+                            Começar Chat
                         </button>
                     </>
                 )}

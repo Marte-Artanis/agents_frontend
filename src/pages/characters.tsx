@@ -8,11 +8,15 @@ export default function Characters() {
   const router = useRouter();
   const { token } = useAuth();
 
-  const handleSubmit = (formData: ChatFormData) => {
-    router.push({
-      pathname: '/chat',
-      query: formData
-    });
+  const handleSubmit = async (formData: ChatFormData) => {
+    try {
+      await router.replace({
+        pathname: '/chat',
+        query: formData
+      });
+    } catch (error) {
+      console.error('Erro ao navegar para o chat:', error);
+    }
   };
 
   return (

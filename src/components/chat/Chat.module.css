@@ -128,6 +128,13 @@
   font-size: 1rem;
   outline: none;
   transition: all 0.3s ease;
+  resize: none;
+  min-height: 2.5rem;
+  max-height: 150px;
+  overflow-y: auto;
+  line-height: 1.5;
+  box-sizing: border-box;
+  height: auto;
 }
 
 .messageInput:focus {

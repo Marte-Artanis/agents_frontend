@@ -19,8 +19,23 @@ export default function Chat({ formData }: ChatProps) {
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { token } = useAuth();
   const router = useRouter();
+
+  // Função para ajustar altura do textarea
+  const adjustTextareaHeight = () => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 150)}px`;
+    }
+  };
+
+  // Ajustar altura quando o input mudar
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [inputMessage]);
 
   // Scroll para a última mensagem
   const scrollToBottom = () => {
@@ -124,13 +139,20 @@ export default function Chat({ formData }: ChatProps) {
 
       {/* Formulário de input */}
       <form onSubmit={handleSubmit} className={styles.inputForm}>
-        <input
-          type="text"
+        <textarea
+          ref={textareaRef}
           value={inputMessage}
           onChange={(e) => setInputMessage(e.target.value)}
-          placeholder="Digite sua mensagem..."
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleSubmit(e);
+            }
+          }}
+          placeholder="Digite sua mensagem... (Shift + Enter para nova linha)"
           className={styles.messageInput}
           disabled={isLoading}
+          rows={1}
         />
         <button
           type="submit"

@@ -95,10 +95,12 @@ export default function CharacterSelectionForm({ onSubmit, token }: CharacterSel
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        
         if (!formData.character || !formData.historicalPeriod || !formData.historicalFactor || !formData.language) {
             setError('Por favor, preencha todos os campos');
             return;
         }
+        
         console.log('Enviando dados:', formData);
         onSubmit(formData);
     };

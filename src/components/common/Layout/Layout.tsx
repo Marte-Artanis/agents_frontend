@@ -1,8 +1,8 @@
 import React, { ReactNode } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '../../../contexts/AuthContext'; // Tentar caminho relativo
 import { useRouter } from 'next/router';
-import styles from './styles.module.css';
+import styles from './styles.module.css'
 
 interface LayoutProps {
   children: ReactNode;

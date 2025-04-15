@@ -1,1 +1,1 @@
- 
+// Arquivo intencionalmente vazio para não ser usado. 

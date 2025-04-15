@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '@/contexts/AuthContext';
-import { ChatFormData } from '@/types';
 import styles from './Chat.module.css';
-import Modal from '@/components/common/Modal';
+import Modal from '@/components/common/Modal/Modal';
 import CharacterSelectionForm from './CharacterSelectionForm';
-import modalStyles from '@/components/common/Modal.module.css';
+import modalStyles from '@/components/common/Modal/styles.module.css';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -13,10 +12,17 @@ interface Message {
   timestamp: string;
 }
 
+// Definir ChatFormData aqui também
+interface ChatFormData {
+  character: string;
+  historicalPeriod: string;
+  historicalFactor: string;
+  language: string;
+}
+
 // Definir um tipo para os detalhes do chat carregados
 interface ChatDetails extends ChatFormData {
   chat_id: string;
-  // Adicionar outros campos que a API /chat/{id} possa retornar, se necessário
 }
 
 interface ChatProps {

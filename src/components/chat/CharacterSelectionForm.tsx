@@ -1,10 +1,17 @@
-import { useState, useEffect } from 'react';
-import { ChatFormData } from '@/types';
+import React, { useState, useEffect } from 'react';
 import { fetchCharacterData, fetchHistoricalPeriods, fetchHistoricalFactors, fetchLanguages } from '@/services/api';
 import styles from './CharacterSelectionForm.module.css';
 
+// Definir a interface diretamente aqui
+interface ChatFormData {
+    character: string;
+    historicalPeriod: string;
+    historicalFactor: string;
+    language: string;
+}
+
 interface CharacterSelectionFormProps {
-    onSubmit: (data: ChatFormData) => void;
+    onSubmit: (formData: ChatFormData) => void;
     token: string;
 }
 

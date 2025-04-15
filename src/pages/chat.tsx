@@ -1,7 +1,7 @@
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
-import { Chat } from '@/components/chat';
-import { ProtectedRoute } from '@/components/common/ProtectedRoute';
+import Chat from '@/components/chat/Chat';
+import { ProtectedRoute } from '@/components/common/ProtectedRoute/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function ChatPage() {

@@ -1,1 +1,1 @@
-export { default as ProfileForm } from './ProfileForm'; 
+// Arquivo intencionalmente vazio. 

@@ -1,6 +1,6 @@
 import { useRouter } from 'next/router';
 import { useAuth } from '@/contexts/AuthContext';
-import { ProtectedRoute } from '@/components/common/ProtectedRoute';
+import { ProtectedRoute } from '@/components/common/ProtectedRoute/ProtectedRoute';
 import { useState, useEffect } from 'react';
 
 // Interface para os dados do personagem vindos da API

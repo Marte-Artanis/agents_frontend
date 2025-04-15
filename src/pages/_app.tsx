@@ -1,7 +1,7 @@
 import '@/styles/globals.css';
 import type { AppProps } from 'next/app';
 import { Inter } from 'next/font/google';
-import { Layout } from '@/components/common/Layout';
+import { Layout } from '@/components/common/Layout/Layout';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';

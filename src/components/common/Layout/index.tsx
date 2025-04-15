@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import React, { ReactNode } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/router';
@@ -31,6 +31,9 @@ export function Layout({ children, hideNav = false }: LayoutProps) {
                 <>
                   <Link href="/characters" className="nav-link">
                     Personagens
+                  </Link>
+                  <Link href="/chat" className="nav-link">
+                    Chat
                   </Link>
                   <Link href="/profile" className="nav-link">
                     Perfil

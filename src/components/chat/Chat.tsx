@@ -13,26 +13,40 @@ interface Message {
   timestamp: string;
 }
 
-interface ChatProps {
-  formData: ChatFormData;
-  chatId?: string; // Opcional para compatibilidade com versões anteriores
+// Definir um tipo para os detalhes do chat carregados
+interface ChatDetails extends ChatFormData {
+  chat_id: string;
+  // Adicionar outros campos que a API /chat/{id} possa retornar, se necessário
 }
 
-export default function Chat({ formData, chatId }: ChatProps) {
+interface ChatProps {
+  chatId?: string; // Renomear para initialChatId abaixo
+}
+
+export default function Chat({ chatId: initialChatId }: ChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // Loading geral (mensagens, detalhes)
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [chats, setChats] = useState<any[]>([]);
-  const [activeChatId, setActiveChatId] = useState<string | null>(chatId || null);
-  const [isLoadingChats, setIsLoadingChats] = useState(false);
+  const [chats, setChats] = useState<any[]>([]); // Lista da sidebar
+  const [activeChatId, setActiveChatId] = useState<string | null>(initialChatId || null);
+  const [isLoadingChats, setIsLoadingChats] = useState(false); // Loading da sidebar
+  const [chatDetails, setChatDetails] = useState<ChatDetails | null>(null); // Estado para detalhes do chat ativo
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { token } = useAuth();
   const router = useRouter();
 
-  // Carregar a lista de chats
+  // Mover o Ref para o nível superior
+  const activeChatIdRef = useRef(activeChatId);
+
+  // Mover o useEffect que atualiza o Ref para o nível superior
+  useEffect(() => {
+    activeChatIdRef.current = activeChatId;
+  }, [activeChatId]);
+
+  // Carregar a lista de chats inicial
   useEffect(() => {
     const loadChats = async () => {
       if (!token) return;
@@ -48,61 +62,138 @@ export default function Chat({ formData, chatId }: ChatProps) {
         if (!response.ok) throw new Error('Erro ao carregar chats');
         
         const data = await response.json();
+        // Ordenar por data se disponível
+        if (data.length > 0 && data[0].last_updated) {
+          data.sort((a: any, b: any) => new Date(b.last_updated).getTime() - new Date(a.last_updated).getTime());
+        }
         setChats(data);
+
+        // Se temos um initialChatId vindo da URL, definir como ativo
+        if (initialChatId && data.some((chat: any) => chat.chat_id === initialChatId)) {
+            console.log(`Setting initial active chat from URL: ${initialChatId}`);
+            setActiveChatId(initialChatId);
+        } else if (!initialChatId && data.length > 0) {
+            // Se não veio ID na URL mas temos chats, opcionalmente ativar o primeiro
+            // console.log(`No initial chat ID from URL, activating the first in list: ${data[0].chat_id}`);
+            // setActiveChatId(data[0].chat_id);
+        } else {
+             // Se não veio ID na URL e não há chats, ou o ID da URL não está na lista
+             if (initialChatId) {
+                 console.warn(`Initial chat ID ${initialChatId} from URL not found in fetched chat list.`);
+                 // Poderia redirecionar ou limpar a URL?
+                 // router.replace('/chat', undefined, { shallow: true });
+             }
+             setActiveChatId(null); // Garantir que nenhum chat está ativo
+        }
+
       } catch (error) {
         console.error('Erro ao carregar chats:', error);
+        setChats([]); // Limpar chats em caso de erro
+        setActiveChatId(null);
       } finally {
         setIsLoadingChats(false);
       }
     };
     
     loadChats();
-  }, [token]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, initialChatId]); // Depender do initialChatId também para reavaliar se ele mudar
 
-  // Carregar mensagens do chat atual quando o chatId mudar
+
+  // Carregar detalhes e mensagens do chat ativo
   useEffect(() => {
-    if (!chatId || !token) return;
-    
-    const loadMessages = async () => {
-      setIsLoading(true);
+    console.log(`[useEffect activeChatId] Triggered. activeChatId: ${activeChatId}, token exists: ${!!token}`);
+
+    if (!activeChatId || !token) {
+        console.log('[useEffect activeChatId] Condition not met. Clearing messages and details.');
+        setMessages([]);
+        setChatDetails(null); // Limpar detalhes do chat anterior
+        setIsLoading(false); // Garantir que não está em loading se não há chat ativo
+        return;
+    };
+
+    const loadActiveChatDetails = async () => {
+      console.log(`[useEffect activeChatId] Running loadActiveChatDetails for chat: ${activeChatId}`);
+      setIsLoading(true); // Indicar carregamento
+      setMessages([]); // Limpar mensagens anteriores
+      setChatDetails(null); // Limpar detalhes anteriores
+
       try {
-        const response = await fetch(`http://localhost:8001/chat/${chatId}`, {
+        console.log(`[useEffect activeChatId] Fetching: /chat/${activeChatId}`);
+        const response = await fetch(`http://localhost:8001/chat/${activeChatId}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         });
-        
-        if (!response.ok) throw new Error('Erro ao carregar mensagens');
-        
-        const data = await response.json();
-        
-        // Verificar se há mensagens para exibir
-        if (data.messages && Array.isArray(data.messages)) {
-          setMessages(data.messages.map((msg: any) => ({
-            role: msg.role || (msg.is_user ? 'user' : 'assistant'),
-            content: msg.content,
-            timestamp: msg.timestamp || new Date().toISOString()
-          })));
-        } else {
-          setMessages([]);
-        }
+        console.log(`[useEffect activeChatId] Fetch response status: ${response.status}`);
 
-        // Se recebemos um novo chat_id e não tínhamos um antes, atualiza a URL
-        if (data.chat_id && !chatId) {
-          // Atualizar URL sem recarregar a página usando history API
-          const url = `/chat?chat_id=${data.chat_id}`;
-          window.history.pushState({}, '', url);
-          setActiveChatId(data.chat_id);
+        if (!response.ok) {
+          // ... (tratamento de erro 404 e outros como antes) ...
+           if (response.status === 404) {
+             console.warn(`[useEffect activeChatId] Chat com ID ${activeChatId} não encontrado (404).`);
+             setMessages([]);
+             setChatDetails(null);
+             // Opcional: Remover da lista local, limpar URL, etc.
+             setChats(prev => prev.filter(c => c.chat_id !== activeChatId));
+             setActiveChatId(null);
+             router.replace('/chat', undefined, { shallow: true });
+           } else {
+             let errorDetail = 'Erro desconhecido';
+             try {
+                const errorData = await response.json();
+                errorDetail = errorData.detail || `Status ${response.status}`;
+             } catch {
+                 errorDetail = `Status ${response.status}`;
+             }
+             console.error(`[useEffect activeChatId] Erro ao carregar dados do chat: ${errorDetail}`);
+             throw new Error(`Erro ao carregar dados do chat: ${errorDetail}`);
+           }
+        } else {
+          const data = await response.json();
+          console.log('[useEffect activeChatId] Fetch successful. Data received:', data);
+
+          // Atualizar o estado chatDetails
+          const loadedDetails: ChatDetails = {
+            chat_id: activeChatId, // Garantir que o ID está aqui
+            character: data.character_name || 'Personagem Desconhecido',
+            historicalPeriod: data.historical_period || '',
+            historicalFactor: data.historical_factors || '',
+            language: data.language || 'Português'
+          };
+          console.log('[useEffect activeChatId] Setting chatDetails:', loadedDetails);
+          setChatDetails(loadedDetails);
+
+          // Carregar mensagens
+          if (data.messages && Array.isArray(data.messages)) {
+             const mappedMessages = data.messages.map((msg: any) => ({
+               role: msg.role || (msg.is_user ? 'user' : 'assistant'),
+               content: msg.content,
+               timestamp: msg.timestamp || new Date().toISOString()
+             }));
+             console.log(`[useEffect activeChatId] Setting ${mappedMessages.length} messages.`);
+             setMessages(mappedMessages);
+          } else {
+            console.log('[useEffect activeChatId] No messages found. Setting empty messages array.');
+            setMessages([]);
+          }
         }
       } catch (error) {
-        console.error('Erro ao carregar mensagens:', error);
+        console.error('[useEffect activeChatId] CATCH block error:', error);
+        setMessages([]);
+        setChatDetails(null); // Limpar detalhes em caso de erro
       } finally {
+        console.log('[useEffect activeChatId] FINALLY block. Setting isLoading to false.');
         setIsLoading(false);
       }
     };
-    
-    loadMessages();
-  }, [chatId, token]);
+
+    loadActiveChatDetails();
+
+    return () => {
+        console.log(`[useEffect activeChatId] Cleanup function for activeChatId: ${activeChatId}`);
+    };
+
+  }, [activeChatId, token, router]); // Adicionar router para que o replace funcione no 404
 
   // Função para ajustar altura do textarea
   const adjustTextareaHeight = () => {
@@ -120,17 +211,26 @@ export default function Chat({ formData, chatId }: ChatProps) {
 
   // Scroll para a última mensagem
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    setTimeout(() => {
+       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
   };
 
   useEffect(() => {
-    scrollToBottom();
+    if (messages.length > 0) {
+      scrollToBottom();
+    }
   }, [messages]);
+
 
   // Enviar mensagem
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputMessage.trim() || isLoading) return;
+    // Precisa ter um chat ativo e detalhes carregados para enviar mensagem
+    if (!inputMessage.trim() || isLoading || !activeChatId || !chatDetails) {
+        console.warn('Submit prevented: No input, loading, no active chat, or no chat details.');
+        return;
+    }
 
     const userMessage: Message = {
       role: 'user',
@@ -139,23 +239,27 @@ export default function Chat({ formData, chatId }: ChatProps) {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = inputMessage;
     setInputMessage('');
+    if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+    }
     setIsLoading(true);
 
     try {
-      const payload = {
-        character: formData.character,
-        prompt: inputMessage,
-        historical_period: formData.historicalPeriod,
-        historical_factors: formData.historicalFactor,
-        language: formData.language
+      // Usar chatDetails para construir o payload
+      const payload: any = {
+        character: chatDetails.character,
+        prompt: currentInput,
+        historical_period: chatDetails.historicalPeriod,
+        historical_factors: chatDetails.historicalFactor,
+        language: chatDetails.language,
+        chat_id: activeChatId // Sempre enviar o ID do chat ativo
       };
-      
-      // Adicionar chat_id se estiver disponível
-      if (chatId) {
-        payload['chat_id'] = chatId;
-      }
-      
+
+      // const currentActiveChatId = activeChatId; // Não precisamos mais capturar antes
+
+      console.log("Sending message payload:", payload);
       const response = await fetch('http://localhost:8001/chat', {
         method: 'POST',
         headers: {
@@ -166,19 +270,14 @@ export default function Chat({ formData, chatId }: ChatProps) {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Erro ao enviar mensagem');
+        setMessages(prev => prev.filter(msg => msg.timestamp !== userMessage.timestamp));
+        setInputMessage(currentInput);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || `Erro ao enviar mensagem: ${response.status}`);
       }
 
       const data = await response.json();
-      
-      // Se recebemos um novo chat_id e não tínhamos um antes, atualiza a URL
-      if (data.chat_id && !chatId) {
-        // Atualizar URL sem recarregar a página usando history API
-        const url = `/chat?chat_id=${data.chat_id}`;
-        window.history.pushState({}, '', url);
-        setActiveChatId(data.chat_id);
-      }
+      console.log("Received message response:", data);
       
       const assistantMessage: Message = {
         role: 'assistant',
@@ -186,321 +285,356 @@ export default function Chat({ formData, chatId }: ChatProps) {
         timestamp: new Date().toISOString()
       };
 
+      // Como estamos em um chat existente, apenas adicionamos a resposta
       setMessages(prev => [...prev, assistantMessage]);
+
+      // Atualizar o last_updated do chat na lista da sidebar (opcional, mas bom)
+      setChats(prevChats => prevChats.map(chat => 
+        chat.chat_id === activeChatId 
+          ? { ...chat, last_updated: assistantMessage.timestamp } 
+          : chat
+      ).sort((a, b) => new Date(b.last_updated).getTime() - new Date(a.last_updated).getTime())); // Reordenar
+
+      // A lógica de criação de novo chat foi movida para handleNewChat
+      // const isNewChat = data.chat_id && !currentActiveChatId; // Removido
+      // if (isNewChat) { ... } // Bloco removido
+
     } catch (error) {
-      console.error('Erro:', error);
+      console.error('Erro no handleSubmit:', error);
     } finally {
       setIsLoading(false);
+      textareaRef.current?.focus();
     }
   };
 
-  const handleNewChat = async (formData: ChatFormData) => {
+  // Criar um NOVO chat (via Modal)
+  const handleNewChat = async (newChatFormData: ChatFormData) => {
     setIsModalOpen(false);
-    
+    setIsLoading(true); // Indicar carregamento geral
+    console.log("Iniciando novo chat com:", newChatFormData);
+
+    const initialPrompt = "Olá!"; // Ou talvez não enviar prompt inicial?
+
     try {
-      const response = await fetch('http://localhost:8001/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          character: formData.character,
-          prompt: 'Olá!',
-          historical_period: formData.historicalPeriod,
-          historical_factors: formData.historicalFactor,
-          language: formData.language
-        })
-      });
+        const payload = {
+            character: newChatFormData.character,
+            prompt: initialPrompt, // Backend precisa lidar com isso se criar mensagem
+            historical_period: newChatFormData.historicalPeriod,
+            historical_factors: newChatFormData.historicalFactor,
+            language: newChatFormData.language
+        };
 
-      if (!response.ok) throw new Error('Erro ao criar chat');
+        console.log("Creating new chat with payload:", payload);
+        const response = await fetch('http://localhost:8001/chat', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(payload)
+        });
 
-      const data = await response.json();
-      
-      // Criar um novo chat para adicionar à lista
-      const newChat = {
-        chat_id: data.chat_id,
-        character_name: formData.character,
-        historical_period: formData.historicalPeriod,
-        historical_factors: formData.historicalFactor,
-        language: formData.language,
-        last_updated: new Date().toISOString()
-      };
-      
-      // Adicionar o novo chat à lista
-      setChats(prev => [newChat, ...prev]);
-      
-      // Atualizar URL sem recarregar a página usando history API
-      const url = `/chat?chat_id=${data.chat_id}`;
-      window.history.pushState({}, '', url);
-      
-      setActiveChatId(data.chat_id);
-      
-      // Carregar o novo chat sem recarregar a página
-      loadChat(data.chat_id);
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.detail || `Erro ao criar novo chat: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log("New chat creation response:", data);
+
+        if (!data.chat_id) {
+           throw new Error('API não retornou chat_id ao criar novo chat');
+        }
+
+        const newChatId = data.chat_id;
+
+        // Criar entrada para a lista da sidebar
+        const newChatEntry = {
+            chat_id: newChatId,
+            character_name: newChatFormData.character,
+            historical_period: newChatFormData.historicalPeriod,
+            historical_factors: newChatFormData.historicalFactor,
+            language: newChatFormData.language,
+            // Usar timestamp da resposta do assistente se houver, senão now
+            last_updated: (data.response && data.timestamp) ? data.timestamp : new Date().toISOString()
+        };
+        // Adicionar ao topo da lista e reordenar (embora já deva ser o mais recente)
+        setChats(prev => [newChatEntry, ...prev.filter(chat => chat.chat_id !== newChatId)]
+                       .sort((a, b) => new Date(b.last_updated).getTime() - new Date(a.last_updated).getTime()));
+
+        // Definir como ativo e atualizar URL (dispara useEffect para carregar detalhes/mensagens)
+        setActiveChatId(newChatId);
+        const url = `/chat?chat_id=${newChatId}`;
+        window.history.pushState({ path: url }, '', url);
+
+        // O useEffect [activeChatId, token] cuidará de carregar os detalhes e a primeira mensagem.
+
     } catch (error) {
-      console.error('Erro ao criar chat:', error);
+        console.error('Erro ao criar novo chat (handleNewChat):', error);
+        // Mostrar erro para o usuário?
+    } finally {
+        setIsLoading(false);
     }
   };
 
   // Função para deletar um chat
-  const handleDeleteChat = async (chatId: string, e: React.MouseEvent) => {
-    e.stopPropagation(); // Impedir que o clique propague para o item da lista
-    
-    console.log("Deletando chat:", chatId);
-    
-    // Remover imediatamente o chat da lista na UI
-    const newChats = chats.filter(chat => chat.chat_id !== chatId);
-    setChats(newChats);
-    
-    // Se o chat atual foi deletado, voltar para a lista de personagens ou mostrar o primeiro chat disponível
-    if (chatId === activeChatId) {
-      if (newChats.length > 0) {
-        // Se ainda há chats, selecione o primeiro
-        setActiveChatId(newChats[0].chat_id);
-        loadChat(newChats[0].chat_id);
-        // Atualizar URL sem recarregar a página
-        const url = `/chat?chat_id=${newChats[0].chat_id}`;
-        window.history.pushState({}, '', url);
-      } else {
-        // Se não houver mais chats, voltar para a página de personagens
-        router.push('/characters');
-      }
-    }
-    
-    // Fazer a chamada para o backend para deletar o chat
+  const handleDeleteChat = async (chatIdToDelete: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    console.log("Tentando deletar chat:", chatIdToDelete);
+
     try {
-      const response = await fetch(`http://localhost:8001/chat/${chatId}`, {
+      const response = await fetch(`http://localhost:8001/chat/${chatIdToDelete}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
-      
-      console.log("Resposta do servidor:", response.status, response.ok);
-      
+
       if (!response.ok) {
-        console.error('Erro ao deletar chat no servidor');
-        // Se o backend falhar, podemos mostrar uma mensagem, mas não precisamos restaurar o chat na UI
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || `Erro ao deletar chat: ${response.status}`);
       }
+
+      console.log("Chat deletado com sucesso:", chatIdToDelete);
+      setChats(prev => prev.filter(chat => chat.chat_id !== chatIdToDelete));
+
+      if (activeChatId === chatIdToDelete) {
+        setActiveChatId(null);
+        // setChatDetails(null); // Já será limpo pelo useEffect
+        // setMessages([]); // Já será limpo pelo useEffect
+        router.replace('/chat', undefined, { shallow: true }); // Limpar URL
+      }
+
     } catch (error) {
-      console.error('Erro ao deletar chat:', error);
+      console.error("Erro ao deletar chat:", error);
     }
   };
 
-  const loadChat = async (chatId: string) => {
-    if (!token) return;
-    
-    setIsLoading(true);
-    try {
-      const response = await fetch(`http://localhost:8001/chat/${chatId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) throw new Error('Erro ao carregar mensagens');
-      
-      const data = await response.json();
-      
-      // Verificar se há mensagens para exibir
-      if (data.messages && Array.isArray(data.messages)) {
-        setMessages(data.messages.map((msg: any) => ({
-          role: msg.role || (msg.is_user ? 'user' : 'assistant'),
-          content: msg.content,
-          timestamp: msg.timestamp || new Date().toISOString()
-        })));
-      } else {
-        setMessages([]);
+  const loadChat = (chatIdToLoad: string) => {
+      if (chatIdToLoad === activeChatId) {
+          console.log("Chat já está ativo:", chatIdToLoad);
+          return;
       }
-    } catch (error) {
-      console.error('Erro ao carregar mensagens:', error);
-    } finally {
-      setIsLoading(false);
-    }
+      console.log("Selecionando chat:", chatIdToLoad);
+      const url = `/chat?chat_id=${chatIdToLoad}`;
+      // Usar replaceState talvez seja melhor para não poluir histórico com cliques na lista
+      window.history.replaceState({ path: url }, '', url);
+      setActiveChatId(chatIdToLoad); // Dispara o useEffect
   };
 
-  // Lidar com navegação do navegador (voltar/avançar)
+  // Listener para o evento popstate (navegação do navegador)
   useEffect(() => {
-    const handlePopState = () => {
+    const handlePopState = (event: PopStateEvent) => {
       const urlParams = new URLSearchParams(window.location.search);
       const chatIdFromUrl = urlParams.get('chat_id');
-      
-      if (chatIdFromUrl && chatIdFromUrl !== activeChatId) {
-        setActiveChatId(chatIdFromUrl);
-        loadChat(chatIdFromUrl);
+      console.log("Evento Popstate - Chat ID da URL:", chatIdFromUrl);
+
+      const currentChatId = activeChatIdRef.current; // Usar ref para valor atual
+
+      if (chatIdFromUrl && chatIdFromUrl !== currentChatId) {
+        console.log("Atualizando activeChatId via Popstate para:", chatIdFromUrl);
+        setActiveChatId(chatIdFromUrl); // Atualiza o estado, que dispara useEffect
+      } else if (!chatIdFromUrl && currentChatId) {
+        console.log("URL não tem mais chat_id, limpando chat ativo.");
+        setActiveChatId(null); // Atualiza o estado, que dispara useEffect
       }
     };
-    
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [activeChatId]);
 
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []); // Manter array vazio para adicionar/remover listener apenas uma vez
+
+
+  // JSX
   return (
-    <div className={styles.mainContainer}>
-      {/* Modal para seleção de personagem */}
+    // Manter a classe mainContainer se ela existir e for usada para layout geral
+    <div className={styles.mainContainer || styles.chatContainer}> 
       {isModalOpen && (
-        <Modal onClose={() => setIsModalOpen(false)}>
-          <div className={styles.modalContent}>
-            <h2 className={styles.modalTitle}>Novo Chat</h2>
-            <div className={modalStyles.modalInnerContent}>
-              <CharacterSelectionForm 
-                token={token} 
-                onSubmit={handleNewChat} 
+        <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
+          {/* Manter estrutura do modal como antes */}
+          <div className={modalStyles.modalContent}>
+             <h2 className={modalStyles.modalTitle}>Criar Novo Chat</h2>
+              <CharacterSelectionForm
+                 onSubmit={handleNewChat}
+                 token={token || ''} 
               />
-            </div>
+              <button onClick={() => setIsModalOpen(false)} className={modalStyles.closeButton}>Fechar</button>
           </div>
         </Modal>
       )}
       
-      {/* Sidebar com lista de chats */}
+      {/* Sidebar */}
       <div className={styles.sidebar}>
-        <div className={styles.sidebarHeader}>
-          <h2 className={styles.sidebarTitle}>Seus Chats</h2>
-          <button 
-            className={styles.newChatButton}
-            onClick={() => setIsModalOpen(true)}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-            <span>Novo</span>
-          </button>
-        </div>
+          {/* ... (Header da Sidebar e botão Novo como antes) ... */}
+          <div className={styles.sidebarHeader}>
+            <h2 className={styles.sidebarTitle}>Seus Chats</h2>
+            <button 
+              className={styles.newChatButton}
+              onClick={() => setIsModalOpen(true)}
+            >
+              {/* Ícone + */}
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              <span>Novo</span>
+            </button>
+          </div>
         
-        <div className={styles.chatList}>
-          {isLoadingChats ? (
-            <div className={styles.loadingChats}>
-              <span>Carregando chats</span>
-              <div className={styles.loadingChat}>
-                <div className={styles.loadingChatDots}>
-                  <div className={styles.loadingChatDot}></div>
-                  <div className={styles.loadingChatDot}></div>
-                  <div className={styles.loadingChatDot}></div>
-                </div>
-              </div>
-            </div>
-          ) : chats.length === 0 ? (
-            <div className={styles.noChats}>
-              <p>Você ainda não tem chats.</p>
-              <button 
-                className={styles.createFirstChatButton}
-                onClick={() => setIsModalOpen(true)}
-              >
-                Criar seu primeiro chat
-              </button>
-            </div>
-          ) : (
-            chats.map((chat) => (
-              <div 
-                key={chat.chat_id}
-                className={`${styles.chatItem} ${chat.chat_id === activeChatId ? styles.chatItemActive : ''}`}
-              >
-                <div 
-                  className={styles.chatInfo}
-                  onClick={() => {
-                    setActiveChatId(chat.chat_id);
-                    
-                    // Atualizar URL sem recarregar a página usando history API
-                    const url = `/chat?chat_id=${chat.chat_id}`;
-                    window.history.pushState({}, '', url);
-                    
-                    // Carregar as mensagens do chat
-                    loadChat(chat.chat_id);
-                  }}
-                >
-                  <div className={styles.chatName}>{chat.character_name}</div>
-                  <div className={styles.chatMeta}>
-                    {new Date(chat.last_updated).toLocaleDateString()}
-                  </div>
-                </div>
+          {/* Lista de Chats */}
+          <div className={styles.chatList}>
+            {isLoadingChats ? (
+              <div className={styles.loadingChats}>Carregando...</div>
+            ) : chats.length === 0 ? (
+              <div className={styles.noChats}>
+                <p>Você ainda não tem chats.</p>
                 <button 
-                  className={styles.deleteButton}
-                  onClick={(e) => handleDeleteChat(chat.chat_id, e)}
-                  title="Excluir chat"
+                  className={styles.createFirstChatButton}
+                  onClick={() => setIsModalOpen(true)} // Abrir modal
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m-4 5v6m-4-6v6m-4-8v13a2 2 0 002 2h10a2 2 0 002-2V11H6" 
-                    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
+                  Criar seu primeiro chat
                 </button>
               </div>
-            ))
-          )}
+            ) : (
+              chats.map((chat) => (
+                // Usar loadChat no onClick do item da lista
+                <div 
+                  key={chat.chat_id}
+                  className={`${styles.chatItem} ${chat.chat_id === activeChatId ? styles.chatItemActive : ''}`}
+                  onClick={() => loadChat(chat.chat_id)} 
+                >
+                  <div className={styles.chatInfo}>
+                     <div className={styles.chatName}>{chat.character_name || `Chat ${chat.chat_id.substring(0, 6)}`}</div>
+                     {/* Opcional: Exibir data */}
+                     <div className={styles.chatMeta}>
+                       {chat.last_updated ? new Date(chat.last_updated).toLocaleDateString() : ''}
+                     </div>
+                  </div>
+                  <button 
+                    className={styles.deleteButton}
+                    onClick={(e) => handleDeleteChat(chat.chat_id, e)}
+                    title="Excluir chat"
+                  >
+                    {/* Ícone Lixeira */}
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"> <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m-4 5v6m-4-6v6m-4-8v13a2 2 0 002 2h10a2 2 0 002-2V11H6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/> </svg>
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
         </div>
-      </div>
       
-      {/* Container principal do chat */}
-      <div className={styles.chatContainer}>
-        {/* Cabeçalho */}
-        <div className={styles.chatHeader}>
-          <button
-            onClick={() => router.push('/characters')}
-            className={styles.backButton}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#B8A088" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 12H5M12 19l-7-7 7-7"/>
-            </svg>
-          </button>
-          <h1 className={styles.chatTitle}>
-            {activeChatId ? 
-              `Conversa com ${chats.find(c => c.chat_id === activeChatId)?.character_name || formData.character}` :
-              `Conversa com ${formData.character}`
-            }
-          </h1>
-        </div>
-
-        {/* Container de mensagens */}
-        <div className={styles.messagesContainer}>
-          {messages.map((message, index) => (
-            <div key={index} className={`${styles.message} ${styles[message.role]}`}>
-              <div className={`${styles.messageBubble} ${styles[message.role]}`}>
-                <div className={styles.messageContent}>{message.content}</div>
-                <span className={styles.messageTimestamp}>
-                  {new Date(message.timestamp).toLocaleTimeString()}
-                </span>
+      {/* Área Principal do Chat */}
+      <div className={styles.chatContainer}> 
+          {/* Renderização condicional da área principal */}
+          {isLoading && !chatDetails && (
+              // Loading inicial ou ao trocar de chat
+              // Aplicar estilos de centralização semelhantes ao noChatSelected
+              <div className={styles.noChatSelected} style={{ textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+                  {/* Adicionar um spinner/indicador de loading aqui */}
+                  <div className={styles.loadingSpinner}></div> 
+                  <p style={{ marginTop: '1rem', fontSize: '1.1rem' }}>Carregando chat...</p>
               </div>
-            </div>
-          ))}
-          {isLoading && (
-            <div className={styles.loadingIndicator}>
-              <div className={styles.loadingDots}>
-                <div className={styles.dot}></div>
-                <div className={styles.dot}></div>
-                <div className={styles.dot}></div>
-              </div>
-            </div>
           )}
-          <div ref={messagesEndRef} />
-        </div>
+          
+          {!activeChatId && !isLoading && (
+              // Nenhum chat selecionado e não está carregando - Centralizado
+              <div className={styles.noChatSelected} style={{ textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+                  <h1 style={{ fontSize: '2.5rem', marginBottom: '1rem', color: '#E8DFD8' }}>Bem-vindo!</h1>
+                  <p style={{ fontSize: '1.2rem', marginBottom: '2rem', color: '#A0A0A0' }}>Selecione um chat na lista à esquerda ou crie um novo para começar.</p>
+                  <button 
+                    onClick={() => setIsModalOpen(true)} 
+                    className={styles.newChatButtonLarge} // Usar um estilo existente ou criar um novo
+                    style={{ 
+                       background: '#B8A088', color: '#1A1A1A', border: 'none',
+                       borderRadius: '0.5rem', padding: '0.8rem 1.8rem', fontSize: '1.1rem',
+                       cursor: 'pointer', fontWeight: 'bold', 
+                       transition: 'background-color 0.3s ease' 
+                    }}
+                    onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#A08C78')}
+                    onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#B8A088')}
+                  >
+                      + Criar Novo Chat
+                  </button>
+              </div>
+          )}
 
-        {/* Formulário de input */}
-        <form onSubmit={handleSubmit} className={styles.inputForm}>
-          <textarea
-            ref={textareaRef}
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSubmit(e);
-              }
-            }}
-            placeholder="Digite sua mensagem... (Shift + Enter para nova linha)"
-            className={styles.messageInput}
-            disabled={isLoading}
-            rows={1}
-          />
-          <button
-            type="submit"
-            disabled={!inputMessage.trim() || isLoading}
-            className={styles.sendButton}
-          >
-            Enviar
-          </button>
-        </form>
-      </div>
+          {activeChatId && chatDetails && (
+            // Mostrar chat ativo se tivermos ID e detalhes carregados
+            <>
+              {/* Cabeçalho do Chat - Usar chatDetails */}
+              <div className={styles.chatHeader}>
+                {/* Botão Voltar Removido */}
+                <h1 className={styles.chatTitle}>
+                    {`Conversa com ${chatDetails.character}`}
+                </h1>
+                {/* Opcional: Mostrar detalhes do período/fator/idioma */}
+                 <p className={styles.historicalContext}>
+                     {chatDetails.historicalPeriod} {chatDetails.historicalFactor && `- ${chatDetails.historicalFactor}`} ({chatDetails.language})
+                 </p>
+              </div>
+
+              {/* Mensagens */}
+              <div className={styles.messagesContainer}>
+                 {messages.length === 0 && !isLoading && (
+                     <div className={styles.noMessages}>
+                         Envie a primeira mensagem para começar.
+                     </div>
+                 )}
+                 {messages.map((message, index) => (
+                    <div key={`${message.timestamp}-${index}`} className={`${styles.message} ${styles[message.role]}`}>
+                       <div className={`${styles.messageBubble} ${styles[message.role]}`}>
+                         <div className={styles.messageContent}>{message.content}</div>
+                         <span className={styles.messageTimestamp}>
+                           {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                         </span>
+                       </div>
+                    </div>
+                 ))}
+                 {/* Loading de resposta do assistente (isLoading E chatDetails existe) */}
+                 {isLoading && chatDetails && (
+                     <div className={`${styles.message} ${styles.assistant} ${styles.loading}`}>
+                         <div className={`${styles.messageBubble} ${styles.assistant}`}>
+                             <div className={styles.loadingDots}> <div/><div/><div/> </div>
+                         </div>
+                     </div>
+                 )}
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* Input de Mensagem - Usar chatDetails no placeholder */}
+              <form onSubmit={handleSubmit} className={styles.inputForm}>
+                <textarea
+                  ref={textareaRef}
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSubmit(e as any); // Cast necessário ou criar handler específico
+                    }
+                  }}
+                  placeholder={`Converse com ${chatDetails.character}...`}
+                  className={styles.messageInput}
+                  disabled={isLoading || !activeChatId} // Desabilitar se estiver carregando ou nenhum chat ativo
+                  rows={1}
+                />
+                <button
+                  type="submit"
+                  disabled={!inputMessage.trim() || isLoading || !activeChatId}
+                  className={styles.sendButton}
+                >
+                   {/* Ícone Enviar */} 
+                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+                      <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                   </svg>
+                </button>
+              </form>
+            </>
+          )}
+        </div>
     </div>
   );
 } 

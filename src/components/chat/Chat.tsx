@@ -457,20 +457,6 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
   return (
     // Manter a classe mainContainer se ela existir e for usada para layout geral
     <div className={styles.mainContainer || styles.chatContainer}> 
-      {isModalOpen && (
-        <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
-          {/* Manter estrutura do modal como antes */}
-          <div className={modalStyles.modalContent}>
-             <h2 className={modalStyles.modalTitle}>Criar Novo Chat</h2>
-              <CharacterSelectionForm
-                 onSubmit={handleNewChat}
-                 token={token || ''} 
-              />
-              <button onClick={() => setIsModalOpen(false)} className={modalStyles.closeButton}>Fechar</button>
-          </div>
-        </Modal>
-      )}
-      
       {/* Sidebar */}
       <div className={styles.sidebar}>
           {/* ... (Header da Sidebar e botão Novo como antes) ... */}
@@ -641,6 +627,23 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
             </>
           )}
         </div>
-    </div>
+
+      {/* Modal para Novo Chat - Adicionar de volta */}
+      {isModalOpen && (
+        <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
+          {/* Garantir que modalStyles.modalContent e modalStyles.modalTitle estão aplicados */}
+          <div className={modalStyles.modalContent}> 
+             <h2 className={modalStyles.modalTitle}>Criar Novo Chat</h2>
+              <CharacterSelectionForm
+                 onSubmit={handleNewChat}
+                 token={token || ''} 
+              />
+              {/* Adicionar um botão fechar visual se não estiver no componente Modal */}
+              {/* <button onClick={() => setIsModalOpen(false)} className={modalStyles.closeButton}>Fechar</button> */}
+          </div>
+        </Modal>
+      )}
+
+    </div> // Fim do container principal
   );
 } 

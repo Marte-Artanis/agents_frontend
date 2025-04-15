@@ -47,4 +47,14 @@
 .content {
   padding: 20px;
   color: #E8DFD8;
+}
+
+/* Adicionar estilo para o título do modal */
+.modalTitle {
+  text-align: center;
+  font-size: 1.8rem; /* Ajustar tamanho conforme necessário */
+  font-weight: bold;
+  color: #B8A088; /* Cor de destaque */
+  margin-bottom: 1rem; /* Reduzir espaçamento abaixo */
+  padding-top: 1rem; /* Espaçamento acima se o botão fechar estiver absoluto */
 } 

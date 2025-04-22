@@ -88,6 +88,11 @@ export const login = async (credentials: { email: string; password: string }) =>
         console.log('Resposta do servidor:', { status: response.status, data });
 
         if (!response.ok) {
+            // Verifica se o erro está relacionado à conexão com o banco de dados
+            if (data.detail?.includes('connection to server') || 
+                data.detail?.includes('psycopg2.OperationalError')) {
+                throw new Error('Erro de conexão com o servidor. Por favor, tente novamente em alguns instantes.');
+            }
             throw new Error(data.detail || 'Credenciais inválidas');
         }
 
@@ -99,6 +104,15 @@ export const login = async (credentials: { email: string; password: string }) =>
         }
     } catch (error: any) {
         console.error('Erro detalhado:', error);
+        
+        // Se for um erro de rede (offline/servidor inacessível)
+        if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
+            return {
+                error: 'Não foi possível conectar ao servidor. Verifique sua conexão com a internet.',
+                success: false
+            };
+        }
+        
         return { 
             error: error.message || 'Erro ao fazer login',
             success: false

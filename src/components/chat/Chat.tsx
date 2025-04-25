@@ -118,18 +118,22 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
         return;
     }
 
-    // Se for um chat novo (placeholder), não buscar do backend
-    if (activeChatId.startsWith('new-')) {
-        console.log('[useEffect activeChatId] New chat placeholder, skipping backend fetch.');
+    // Se for um chat novo (placeholder) ou temporário, não buscar do backend
+    if (activeChatId === 'temp' || chatDetails?.chat_id === '') {
+        console.log('[useEffect activeChatId] Temporary chat, skipping backend fetch.');
         setIsLoading(false);
+        return;
+    }
+
+    // Se já tivermos os detalhes do chat e mensagens, não recarregar
+    if (chatDetails?.chat_id === activeChatId && messages.length > 0) {
+        console.log('[useEffect activeChatId] Chat already loaded, skipping fetch.');
         return;
     }
 
     const loadActiveChatDetails = async () => {
       console.log(`[useEffect activeChatId] Running loadActiveChatDetails for chat: ${activeChatId}`);
       setIsLoading(true);
-      setMessages([]);
-      setChatDetails(null);
 
       try {
         console.log(`[useEffect activeChatId] Fetching: /chat/${activeChatId}`);
@@ -141,59 +145,61 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
         console.log(`[useEffect activeChatId] Fetch response status: ${response.status}`);
 
         if (!response.ok) {
-          // ... (tratamento de erro 404 e outros como antes) ...
-           if (response.status === 404) {
-             console.warn(`[useEffect activeChatId] Chat com ID ${activeChatId} não encontrado (404).`);
-             setMessages([]);
-             setChatDetails(null);
-             // Opcional: Remover da lista local, limpar URL, etc.
-             setChats(prev => prev.filter(c => c.chat_id !== activeChatId));
-             setActiveChatId(null);
-             router.replace('/chat', undefined, { shallow: true });
-           } else {
-             let errorDetail = 'Erro desconhecido';
-             try {
-                const errorData = await response.json();
-                errorDetail = errorData.detail || `Status ${response.status}`;
-             } catch {
-                 errorDetail = `Status ${response.status}`;
-             }
-             console.error(`[useEffect activeChatId] Erro ao carregar dados do chat: ${errorDetail}`);
-             throw new Error(`Erro ao carregar dados do chat: ${errorDetail}`);
-           }
+          if (response.status === 404) {
+            console.warn(`[useEffect activeChatId] Chat com ID ${activeChatId} não encontrado (404).`);
+            // Não limpar os detalhes se for um chat novo
+            if (!chatDetails?.chat_id.startsWith('new-')) {
+              setMessages([]);
+              setChatDetails(null);
+              setChats(prev => prev.filter(c => c.chat_id !== activeChatId));
+              setActiveChatId(null);
+              router.replace('/chat', undefined, { shallow: true });
+            }
+          } else {
+            let errorDetail = 'Erro desconhecido';
+            try {
+              const errorData = await response.json();
+              errorDetail = errorData.detail || `Status ${response.status}`;
+            } catch {
+              errorDetail = `Status ${response.status}`;
+            }
+            console.error(`[useEffect activeChatId] Erro ao carregar dados do chat: ${errorDetail}`);
+            throw new Error(`Erro ao carregar dados do chat: ${errorDetail}`);
+          }
         } else {
           const data = await response.json();
           console.log('[useEffect activeChatId] Fetch successful. Data received:', data);
 
-          // Atualizar o estado chatDetails
-          const loadedDetails: ChatDetails = {
-            chat_id: activeChatId, // Garantir que o ID está aqui
-            character: data.character_name || 'Personagem Desconhecido',
-            historicalPeriod: data.historical_period || '',
-            historicalFactor: data.historical_factors || '',
-            language: data.language || 'Português'
-          };
-          console.log('[useEffect activeChatId] Setting chatDetails:', loadedDetails);
-          setChatDetails(loadedDetails);
+          // Atualizar o estado chatDetails mantendo os dados existentes se for um chat novo
+          if (!chatDetails?.chat_id.startsWith('new-')) {
+            const loadedDetails: ChatDetails = {
+              chat_id: activeChatId,
+              character: data.character || chatDetails?.character || 'Personagem Desconhecido',
+              historicalPeriod: data.historical_period || chatDetails?.historicalPeriod || '',
+              historicalFactor: data.historical_factors || chatDetails?.historicalFactor || '',
+              language: data.language || chatDetails?.language || 'Português'
+            };
+            console.log('[useEffect activeChatId] Setting chatDetails:', loadedDetails);
+            setChatDetails(loadedDetails);
+          }
 
-          // Carregar mensagens
-          if (data.messages && Array.isArray(data.messages)) {
-             const mappedMessages = data.messages.map((msg: any) => ({
-               role: msg.role || (msg.is_user ? 'user' : 'assistant'),
-               content: msg.content,
-               timestamp: msg.timestamp || new Date().toISOString()
-             }));
-             console.log(`[useEffect activeChatId] Setting ${mappedMessages.length} messages.`);
-             setMessages(mappedMessages);
-          } else {
-            console.log('[useEffect activeChatId] No messages found. Setting empty messages array.');
-            setMessages([]);
+          // Carregar mensagens apenas se não for um chat novo
+          if (!chatDetails?.chat_id.startsWith('new-') && data.messages && Array.isArray(data.messages)) {
+            const mappedMessages = data.messages.map((msg: any) => ({
+              role: msg.role || (msg.is_user ? 'user' : 'assistant'),
+              content: msg.content,
+              timestamp: msg.timestamp || new Date().toISOString()
+            }));
+            console.log(`[useEffect activeChatId] Setting ${mappedMessages.length} messages.`);
+            setMessages(mappedMessages);
           }
         }
       } catch (error) {
         console.error('[useEffect activeChatId] CATCH block error:', error);
-        setMessages([]);
-        setChatDetails(null); // Limpar detalhes em caso de erro
+        if (!chatDetails?.chat_id.startsWith('new-')) {
+          setMessages([]);
+          setChatDetails(null);
+        }
       } finally {
         console.log('[useEffect activeChatId] FINALLY block. Setting isLoading to false.');
         setIsLoading(false);
@@ -203,10 +209,10 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
     loadActiveChatDetails();
 
     return () => {
-        console.log(`[useEffect activeChatId] Cleanup function for activeChatId: ${activeChatId}`);
+      console.log(`[useEffect activeChatId] Cleanup function for activeChatId: ${activeChatId}`);
     };
 
-  }, [activeChatId, token, router]); // Adicionar router para que o replace funcione no 404
+  }, [activeChatId, token, router, chatDetails?.chat_id, messages.length]); // Adicionadas dependências para controle mais fino
 
   // Função para ajustar altura do textarea
   const adjustTextareaHeight = () => {
@@ -266,7 +272,7 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
         historical_period: chatDetails.historicalPeriod,
         historical_factors: chatDetails.historicalFactor,
         language: chatDetails.language,
-        session_id: chatDetails.chat_id.startsWith('new-') ? undefined : chatDetails.chat_id
+        chat_id: chatDetails.chat_id || undefined // Se vazio ou 'temp', será undefined
       };
 
       console.log("Sending message payload:", payload);
@@ -296,15 +302,22 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
       };
 
       // Se for um chat novo (primeira mensagem), atualizar com o ID real
-      if (chatDetails.chat_id.startsWith('new-') && data.chat_id) {
+      if ((!chatDetails.chat_id || chatDetails.chat_id === 'temp') && data.chat_id) {
         const newChatId = data.chat_id;
         
-        // Atualizar URL
+        // Atualizar URL sem disparar o useEffect
         const url = `/chat?chat_id=${newChatId}`;
         window.history.replaceState({ path: url }, '', url);
         
-        // Atualizar detalhes do chat com ID real
-        setChatDetails(prev => prev ? { ...prev, chat_id: newChatId } : null);
+        // Atualizar detalhes do chat mantendo os dados existentes
+        const updatedDetails = {
+          ...chatDetails,
+          chat_id: newChatId
+        };
+        setChatDetails(updatedDetails);
+        
+        // Não atualizar activeChatId para evitar reload
+        // setActiveChatId(newChatId); // Removido para evitar reload
 
         // Adicionar à lista de chats
         setChats(prev => [{
@@ -332,15 +345,18 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
   const handleNewChat = async (newChatFormData: ChatFormData) => {
     setIsModalOpen(false);
     console.log("Iniciando novo chat com:", newChatFormData);
-
-    // Apenas salvar os dados no estado
+    
+    // Salvar os dados no estado
     setChatDetails({
-        chat_id: `new-${Date.now()}`, // ID temporário só pra referência
+        chat_id: '', // Chat ID vazio até enviar primeira mensagem
         character: newChatFormData.character,
         historicalPeriod: newChatFormData.historicalPeriod,
         historicalFactor: newChatFormData.historicalFactor,
         language: newChatFormData.language
     });
+
+    // Definir chat como ativo
+    setActiveChatId('temp'); // Apenas para mostrar a interface de chat
 
     // Limpar mensagens
     setMessages([]);

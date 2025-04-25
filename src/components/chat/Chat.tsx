@@ -113,16 +113,23 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
     if (!activeChatId || !token) {
         console.log('[useEffect activeChatId] Condition not met. Clearing messages and details.');
         setMessages([]);
-        setChatDetails(null); // Limpar detalhes do chat anterior
-        setIsLoading(false); // Garantir que não está em loading se não há chat ativo
+        setChatDetails(null);
+        setIsLoading(false);
         return;
-    };
+    }
+
+    // Se for um chat novo (placeholder), não buscar do backend
+    if (activeChatId.startsWith('new-')) {
+        console.log('[useEffect activeChatId] New chat placeholder, skipping backend fetch.');
+        setIsLoading(false);
+        return;
+    }
 
     const loadActiveChatDetails = async () => {
       console.log(`[useEffect activeChatId] Running loadActiveChatDetails for chat: ${activeChatId}`);
-      setIsLoading(true); // Indicar carregamento
-      setMessages([]); // Limpar mensagens anteriores
-      setChatDetails(null); // Limpar detalhes anteriores
+      setIsLoading(true);
+      setMessages([]);
+      setChatDetails(null);
 
       try {
         console.log(`[useEffect activeChatId] Fetching: /chat/${activeChatId}`);
@@ -232,9 +239,8 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
   // Enviar mensagem
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Precisa ter um chat ativo e detalhes carregados para enviar mensagem
-    if (!inputMessage.trim() || isLoading || !activeChatId || !chatDetails) {
-        console.warn('Submit prevented: No input, loading, no active chat, or no chat details.');
+    if (!inputMessage.trim() || isLoading || !chatDetails) {
+        console.warn('Submit prevented: No input, loading, or no chat details.');
         return;
     }
 
@@ -253,17 +259,15 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
     setIsLoading(true);
 
     try {
-      // Usar chatDetails para construir o payload
-      const payload: any = {
+      // Construir payload com os dados do chat
+      const payload = {
         character: chatDetails.character,
         prompt: currentInput,
         historical_period: chatDetails.historicalPeriod,
         historical_factors: chatDetails.historicalFactor,
         language: chatDetails.language,
-        chat_id: activeChatId // Sempre enviar o ID do chat ativo
+        session_id: chatDetails.chat_id.startsWith('new-') ? undefined : chatDetails.chat_id
       };
-
-      // const currentActiveChatId = activeChatId; // Não precisamos mais capturar antes
 
       console.log("Sending message payload:", payload);
       const response = await fetch('http://localhost:8001/chat', {
@@ -291,19 +295,30 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
         timestamp: new Date().toISOString()
       };
 
-      // Como estamos em um chat existente, apenas adicionamos a resposta
+      // Se for um chat novo (primeira mensagem), atualizar com o ID real
+      if (chatDetails.chat_id.startsWith('new-') && data.chat_id) {
+        const newChatId = data.chat_id;
+        
+        // Atualizar URL
+        const url = `/chat?chat_id=${newChatId}`;
+        window.history.replaceState({ path: url }, '', url);
+        
+        // Atualizar detalhes do chat com ID real
+        setChatDetails(prev => prev ? { ...prev, chat_id: newChatId } : null);
+
+        // Adicionar à lista de chats
+        setChats(prev => [{
+          chat_id: newChatId,
+          character_name: chatDetails.character,
+          historical_period: chatDetails.historicalPeriod,
+          historical_factors: chatDetails.historicalFactor,
+          language: chatDetails.language,
+          last_updated: new Date().toISOString()
+        }, ...prev]);
+      }
+
+      // Adicionar resposta do assistente
       setMessages(prev => [...prev, assistantMessage]);
-
-      // Atualizar o last_updated do chat na lista da sidebar (opcional, mas bom)
-      setChats(prevChats => prevChats.map(chat => 
-        chat.chat_id === activeChatId 
-          ? { ...chat, last_updated: assistantMessage.timestamp } 
-          : chat
-      ).sort((a, b) => new Date(b.last_updated).getTime() - new Date(a.last_updated).getTime())); // Reordenar
-
-      // A lógica de criação de novo chat foi movida para handleNewChat
-      // const isNewChat = data.chat_id && !currentActiveChatId; // Removido
-      // if (isNewChat) { ... } // Bloco removido
 
     } catch (error) {
       console.error('Erro no handleSubmit:', error);
@@ -316,71 +331,19 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
   // Criar um NOVO chat (via Modal)
   const handleNewChat = async (newChatFormData: ChatFormData) => {
     setIsModalOpen(false);
-    setIsLoading(true); // Indicar carregamento geral
     console.log("Iniciando novo chat com:", newChatFormData);
 
-    const initialPrompt = "Olá!"; // Ou talvez não enviar prompt inicial?
+    // Apenas salvar os dados no estado
+    setChatDetails({
+        chat_id: `new-${Date.now()}`, // ID temporário só pra referência
+        character: newChatFormData.character,
+        historicalPeriod: newChatFormData.historicalPeriod,
+        historicalFactor: newChatFormData.historicalFactor,
+        language: newChatFormData.language
+    });
 
-    try {
-        const payload = {
-            character: newChatFormData.character,
-            prompt: initialPrompt, // Backend precisa lidar com isso se criar mensagem
-            historical_period: newChatFormData.historicalPeriod,
-            historical_factors: newChatFormData.historicalFactor,
-            language: newChatFormData.language
-        };
-
-        console.log("Creating new chat with payload:", payload);
-        const response = await fetch('http://localhost:8001/chat', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.detail || `Erro ao criar novo chat: ${response.status}`);
-        }
-
-        const data = await response.json();
-        console.log("New chat creation response:", data);
-
-        if (!data.chat_id) {
-           throw new Error('API não retornou chat_id ao criar novo chat');
-        }
-
-        const newChatId = data.chat_id;
-
-        // Criar entrada para a lista da sidebar
-        const newChatEntry = {
-            chat_id: newChatId,
-            character_name: newChatFormData.character,
-            historical_period: newChatFormData.historicalPeriod,
-            historical_factors: newChatFormData.historicalFactor,
-            language: newChatFormData.language,
-            // Usar timestamp da resposta do assistente se houver, senão now
-            last_updated: (data.response && data.timestamp) ? data.timestamp : new Date().toISOString()
-        };
-        // Adicionar ao topo da lista e reordenar (embora já deva ser o mais recente)
-        setChats(prev => [newChatEntry, ...prev.filter(chat => chat.chat_id !== newChatId)]
-                       .sort((a, b) => new Date(b.last_updated).getTime() - new Date(a.last_updated).getTime()));
-
-        // Definir como ativo e atualizar URL (dispara useEffect para carregar detalhes/mensagens)
-        setActiveChatId(newChatId);
-        const url = `/chat?chat_id=${newChatId}`;
-        window.history.pushState({ path: url }, '', url);
-
-        // O useEffect [activeChatId, token] cuidará de carregar os detalhes e a primeira mensagem.
-
-    } catch (error) {
-        console.error('Erro ao criar novo chat (handleNewChat):', error);
-        // Mostrar erro para o usuário?
-    } finally {
-        setIsLoading(false);
-    }
+    // Limpar mensagens
+    setMessages([]);
   };
 
   // Função para deletar um chat

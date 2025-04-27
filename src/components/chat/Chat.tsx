@@ -118,8 +118,8 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
         return;
     }
 
-    // Se for um chat novo (placeholder) ou temporário, não buscar do backend
-    if (activeChatId === 'temp' || chatDetails?.chat_id === '') {
+    // Se for um chat temporário, não buscar do backend
+    if (activeChatId?.startsWith('temp-')) {
         console.log('[useEffect activeChatId] Temporary chat, skipping backend fetch.');
         setIsLoading(false);
         return;
@@ -302,7 +302,7 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
       };
 
       // Se for um chat novo (primeira mensagem), atualizar com o ID real
-      if ((!chatDetails.chat_id || chatDetails.chat_id === 'temp') && data.chat_id) {
+      if ((!chatDetails.chat_id || chatDetails.chat_id.startsWith('temp-')) && data.chat_id) {
         const newChatId = data.chat_id;
         
         // Atualizar URL sem disparar o useEffect
@@ -316,18 +316,18 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
         };
         setChatDetails(updatedDetails);
         
-        // Não atualizar activeChatId para evitar reload
-        // setActiveChatId(newChatId); // Removido para evitar reload
-
-        // Adicionar à lista de chats
-        setChats(prev => [{
-          chat_id: newChatId,
-          character_name: chatDetails.character,
-          historical_period: chatDetails.historicalPeriod,
-          historical_factors: chatDetails.historicalFactor,
-          language: chatDetails.language,
-          last_updated: new Date().toISOString()
-        }, ...prev]);
+        // Atualizar na lista de chats (remover o temporário e adicionar o permanente)
+        setChats(prev => [
+          {
+            chat_id: newChatId,
+            character_name: chatDetails.character, // Agora sem o prefixo "Novo Chat"
+            historical_period: chatDetails.historicalPeriod,
+            historical_factors: chatDetails.historicalFactor,
+            language: chatDetails.language,
+            last_updated: new Date().toISOString()
+          },
+          ...prev.filter(chat => chat.chat_id !== chatDetails.chat_id) // Remove o chat temporário
+        ]);
       }
 
       // Adicionar resposta do assistente
@@ -346,9 +346,12 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
     setIsModalOpen(false);
     console.log("Iniciando novo chat com:", newChatFormData);
     
+    // Gerar ID temporário
+    const tempId = `temp-${Date.now()}`;
+    
     // Salvar os dados no estado
     setChatDetails({
-        chat_id: '', // Chat ID vazio até enviar primeira mensagem
+        chat_id: tempId,
         character: newChatFormData.character,
         historicalPeriod: newChatFormData.historicalPeriod,
         historicalFactor: newChatFormData.historicalFactor,
@@ -356,7 +359,18 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
     });
 
     // Definir chat como ativo
-    setActiveChatId('temp'); // Apenas para mostrar a interface de chat
+    setActiveChatId(tempId);
+
+    // Adicionar à lista de chats com indicação de que é novo
+    setChats(prev => [{
+      chat_id: tempId,
+      character_name: `Novo Chat - ${newChatFormData.character}`,
+      historical_period: newChatFormData.historicalPeriod,
+      historical_factors: newChatFormData.historicalFactor,
+      language: newChatFormData.language,
+      last_updated: new Date().toISOString(),
+      is_temporary: true // Flag para identificar chats temporários
+    }, ...prev]);
 
     // Limpar mensagens
     setMessages([]);
@@ -477,7 +491,15 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
                   onClick={() => loadChat(chat.chat_id)} 
                 >
                   <div className={styles.chatInfo}>
-                     <div className={styles.chatName}>{chat.character_name || `Chat ${chat.chat_id.substring(0, 6)}`}</div>
+                     <div className={styles.chatName}>
+                       {chat.is_temporary ? (
+                         <span className={styles.newChatIndicator}>
+                           {chat.character_name}
+                         </span>
+                       ) : (
+                         chat.character_name || `Chat ${chat.chat_id.substring(0, 6)}`
+                       )}
+                     </div>
                      {/* Opcional: Exibir data */}
                      <div className={styles.chatMeta}>
                        {chat.last_updated ? new Date(chat.last_updated).toLocaleDateString() : ''}
@@ -489,7 +511,10 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
                     title="Excluir chat"
                   >
                     {/* Ícone Lixeira */}
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"> <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m-4 5v6m-4-6v6m-4-8v13a2 2 0 002 2h10a2 2 0 002-2V11H6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/> </svg>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m-4 5v6m-4-6v6m-4-8v13a2 2 0 002 2h10a2 2 0 002-2V11H6" 
+                        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
                   </button>
                 </div>
               ))
@@ -539,7 +564,9 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
               <div className={styles.chatHeader}>
                 {/* Botão Voltar Removido */}
                 <h1 className={styles.chatTitle}>
-                    {`Conversa com ${chatDetails.character}`}
+                  {chatDetails?.chat_id?.startsWith('temp-')
+                    ? 'Novo Chat'
+                    : `Conversa com ${chatDetails.character}`}
                 </h1>
                 {/* Opcional: Mostrar detalhes do período/fator/idioma */}
                  <p className={styles.historicalContext}>

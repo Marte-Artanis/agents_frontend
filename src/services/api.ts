@@ -186,7 +186,7 @@ export const fetchCharacterData = async () => {
 
 export const fetchHistoricalPeriods = async (character: string) => {
     try {
-        const response = await authenticatedFetch(`${API_BASE_URL}/historical-periods/${character}`);
+        const response = await authenticatedFetch(`${API_BASE_URL}/characters/historical-periods/${character}`);
         const data = await response.json();
         return { data };
     } catch (error) {
@@ -196,7 +196,7 @@ export const fetchHistoricalPeriods = async (character: string) => {
 
 export const fetchHistoricalFactors = async (character: string) => {
     try {
-        const response = await authenticatedFetch(`${API_BASE_URL}/historical-factors/${character}`);
+        const response = await authenticatedFetch(`${API_BASE_URL}/characters/historical-factors/${character}`);
         const data = await response.json();
         return { data };
     } catch (error) {
@@ -206,7 +206,7 @@ export const fetchHistoricalFactors = async (character: string) => {
 
 export const fetchLanguages = async () => {
     try {
-        const response = await authenticatedFetch(`${API_BASE_URL}/languages`);
+        const response = await authenticatedFetch(`${API_BASE_URL}/characters/languages`);
         const data = await response.json();
         return { data };
     } catch (error) {

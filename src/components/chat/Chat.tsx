@@ -22,7 +22,7 @@ interface ChatFormData {
 
 // Definir um tipo para os detalhes do chat carregados
 interface ChatDetails extends ChatFormData {
-  chat_id: string;
+  chat_id: string | null;
 }
 
 interface ChatProps {
@@ -59,7 +59,7 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
       
       setIsLoadingChats(true);
       try {
-        const response = await fetch('http://localhost:8001/chats', {
+        const response = await fetch('http://localhost:8001/chat', {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -108,9 +108,10 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
 
   // Carregar detalhes e mensagens do chat ativo
   useEffect(() => {
-    console.log(`[useEffect activeChatId] Triggered. activeChatId: ${activeChatId}, token exists: ${!!token}`);
+    console.log(`[useEffect activeChatId] Triggered. activeChatId:`, activeChatId, ', token exists:', !!token);
 
-    if (!activeChatId || !token) {
+    // Só limpa tudo se não houver activeChatId E não houver chatDetails
+    if ((!activeChatId && !chatDetails) || !token) {
         console.log('[useEffect activeChatId] Condition not met. Clearing messages and details.');
         setMessages([]);
         setChatDetails(null);
@@ -118,10 +119,8 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
         return;
     }
 
-    // Se for um chat temporário, não buscar do backend
-    if (activeChatId?.startsWith('temp-')) {
-        console.log('[useEffect activeChatId] Temporary chat, skipping backend fetch.');
-        setIsLoading(false);
+    // Se activeChatId for null ou vazio, não buscar nada
+    if (!activeChatId) {
         return;
     }
 
@@ -148,7 +147,7 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
           if (response.status === 404) {
             console.warn(`[useEffect activeChatId] Chat com ID ${activeChatId} não encontrado (404).`);
             // Não limpar os detalhes se for um chat novo
-            if (!chatDetails?.chat_id.startsWith('new-')) {
+            if (chatDetails?.chat_id && !chatDetails.chat_id.startsWith('new-')) {
               setMessages([]);
               setChatDetails(null);
               setChats(prev => prev.filter(c => c.chat_id !== activeChatId));
@@ -171,7 +170,7 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
           console.log('[useEffect activeChatId] Fetch successful. Data received:', data);
 
           // Atualizar o estado chatDetails mantendo os dados existentes se for um chat novo
-          if (!chatDetails?.chat_id.startsWith('new-')) {
+          if (chatDetails?.chat_id && !chatDetails.chat_id.startsWith('new-')) {
             const loadedDetails: ChatDetails = {
               chat_id: activeChatId,
               character: data.character || chatDetails?.character || 'Personagem Desconhecido',
@@ -184,7 +183,7 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
           }
 
           // Carregar mensagens apenas se não for um chat novo
-          if (!chatDetails?.chat_id.startsWith('new-') && data.messages && Array.isArray(data.messages)) {
+          if (chatDetails?.chat_id && !chatDetails.chat_id.startsWith('new-') && data.messages && Array.isArray(data.messages)) {
             const mappedMessages = data.messages.map((msg: any) => ({
               role: msg.role || (msg.is_user ? 'user' : 'assistant'),
               content: msg.content,
@@ -196,7 +195,7 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
         }
       } catch (error) {
         console.error('[useEffect activeChatId] CATCH block error:', error);
-        if (!chatDetails?.chat_id.startsWith('new-')) {
+        if (chatDetails?.chat_id && !chatDetails.chat_id.startsWith('new-')) {
           setMessages([]);
           setChatDetails(null);
         }
@@ -302,9 +301,8 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
       };
 
       // Se for um chat novo (primeira mensagem), atualizar com o ID real
-      if ((!chatDetails.chat_id || chatDetails.chat_id.startsWith('temp-')) && data.chat_id) {
+      if (chatDetails?.chat_id === 'new' && data.chat_id) {
         const newChatId = data.chat_id;
-        
         // Atualizar URL sem disparar o useEffect
         const url = `/chat?chat_id=${newChatId}`;
         window.history.replaceState({ path: url }, '', url);
@@ -315,18 +313,19 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
           chat_id: newChatId
         };
         setChatDetails(updatedDetails);
+        setActiveChatId(newChatId);
         
-        // Atualizar na lista de chats (remover o temporário e adicionar o permanente)
+        // Atualizar na lista de chats (adicionar o novo)
         setChats(prev => [
           {
             chat_id: newChatId,
-            character_name: chatDetails.character, // Agora sem o prefixo "Novo Chat"
+            character_name: chatDetails.character,
             historical_period: chatDetails.historicalPeriod,
             historical_factors: chatDetails.historicalFactor,
             language: chatDetails.language,
             last_updated: new Date().toISOString()
           },
-          ...prev.filter(chat => chat.chat_id !== chatDetails.chat_id) // Remove o chat temporário
+          ...prev.filter(chat => chat.chat_id !== 'new')
         ]);
       }
 
@@ -344,36 +343,26 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
   // Criar um NOVO chat (via Modal)
   const handleNewChat = async (newChatFormData: ChatFormData) => {
     setIsModalOpen(false);
-    console.log("Iniciando novo chat com:", newChatFormData);
-    
-    // Gerar ID temporário
-    const tempId = `temp-${Date.now()}`;
-    
-    // Salvar os dados no estado
     setChatDetails({
-        chat_id: tempId,
-        character: newChatFormData.character,
-        historicalPeriod: newChatFormData.historicalPeriod,
-        historicalFactor: newChatFormData.historicalFactor,
-        language: newChatFormData.language
+        ...newChatFormData,
+        chat_id: 'new' // id especial para novo chat
     });
-
-    // Definir chat como ativo
-    setActiveChatId(tempId);
-
-    // Adicionar à lista de chats com indicação de que é novo
-    setChats(prev => [{
-      chat_id: tempId,
-      character_name: `Novo Chat - ${newChatFormData.character}`,
-      historical_period: newChatFormData.historicalPeriod,
-      historical_factors: newChatFormData.historicalFactor,
-      language: newChatFormData.language,
-      last_updated: new Date().toISOString(),
-      is_temporary: true // Flag para identificar chats temporários
-    }, ...prev]);
-
-    // Limpar mensagens
+    setActiveChatId('new');
     setMessages([]);
+
+    // Adiciona o item temporário se ainda não existir
+    setChats(prev => {
+      if (prev.some(chat => chat.chat_id === 'new')) return prev;
+      return [
+        {
+          chat_id: 'new',
+          character_name: 'Novo Chat',
+          is_temporary: true,
+          last_updated: new Date().toISOString(),
+        },
+        ...prev
+      ];
+    });
   };
 
   // Função para deletar um chat
@@ -445,6 +434,13 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
     };
   }, []); // Manter array vazio para adicionar/remover listener apenas uma vez
 
+  // Se cancelar o novo chat, remova o item temporário (exemplo: função para cancelar)
+  const handleCancelNewChat = () => {
+    setChats(prev => prev.filter(chat => chat.chat_id !== 'new'));
+    setActiveChatId(null);
+    setChatDetails(null);
+    setMessages([]);
+  };
 
   // JSX
   return (
@@ -525,46 +521,13 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
       {/* Área Principal do Chat */}
       <div className={styles.chatContainer}> 
           {/* Renderização condicional da área principal */}
-          {isLoading && !chatDetails && (
-              // Loading inicial ou ao trocar de chat
-              // Aplicar estilos de centralização semelhantes ao noChatSelected
-              <div className={styles.noChatSelected} style={{ textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-                  {/* Adicionar um spinner/indicador de loading aqui */}
-                  <div className={styles.loadingSpinner}></div> 
-                  <p style={{ marginTop: '1rem', fontSize: '1.1rem' }}>Carregando chat...</p>
-              </div>
-          )}
-          
-          {!activeChatId && !isLoading && (
-              // Nenhum chat selecionado e não está carregando - Centralizado
-              <div className={styles.noChatSelected} style={{ textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-                  <h1 style={{ fontSize: '2.5rem', marginBottom: '1rem', color: '#E8DFD8' }}>Bem-vindo!</h1>
-                  <p style={{ fontSize: '1.2rem', marginBottom: '2rem', color: '#A0A0A0' }}>Selecione um chat na lista à esquerda ou crie um novo para começar.</p>
-                  <button 
-                    onClick={() => setIsModalOpen(true)} 
-                    className={styles.newChatButtonLarge} // Usar um estilo existente ou criar um novo
-                    style={{ 
-                       background: '#B8A088', color: '#1A1A1A', border: 'none',
-                       borderRadius: '0.5rem', padding: '0.8rem 1.8rem', fontSize: '1.1rem',
-                       cursor: 'pointer', fontWeight: 'bold', 
-                       transition: 'background-color 0.3s ease' 
-                    }}
-                    onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#A08C78')}
-                    onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#B8A088')}
-                  >
-                      + Criar Novo Chat
-                  </button>
-              </div>
-          )}
-
-          {activeChatId && chatDetails && (
-            // Mostrar chat ativo se tivermos ID e detalhes carregados
+          {chatDetails ? (
             <>
               {/* Cabeçalho do Chat - Usar chatDetails */}
               <div className={styles.chatHeader}>
                 {/* Botão Voltar Removido */}
                 <h1 className={styles.chatTitle}>
-                  {chatDetails?.chat_id?.startsWith('temp-')
+                  {chatDetails?.chat_id == null || chatDetails?.chat_id?.startsWith('temp-')
                     ? 'Novo Chat'
                     : `Conversa com ${chatDetails.character}`}
                 </h1>
@@ -616,12 +579,12 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
                   }}
                   placeholder={`Converse com ${chatDetails.character}...`}
                   className={styles.messageInput}
-                  disabled={isLoading || !activeChatId} // Desabilitar se estiver carregando ou nenhum chat ativo
+                  disabled={isLoading}
                   rows={1}
                 />
                 <button
                   type="submit"
-                  disabled={!inputMessage.trim() || isLoading || !activeChatId}
+                  disabled={!inputMessage.trim() || isLoading}
                   className={styles.sendButton}
                 >
                    {/* Ícone Enviar */} 
@@ -631,6 +594,27 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
                 </button>
               </form>
             </>
+          ) : (
+            !isLoading && (
+              <div className={styles.noChatSelected} style={{ textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+                  <h1 style={{ fontSize: '2.5rem', marginBottom: '1rem', color: '#E8DFD8' }}>Bem-vindo!</h1>
+                  <p style={{ fontSize: '1.2rem', marginBottom: '2rem', color: '#A0A0A0' }}>Selecione um chat na lista à esquerda ou crie um novo para começar.</p>
+                  <button 
+                    onClick={() => setIsModalOpen(true)} 
+                    className={styles.newChatButtonLarge} // Usar um estilo existente ou criar um novo
+                    style={{ 
+                       background: '#B8A088', color: '#1A1A1A', border: 'none',
+                       borderRadius: '0.5rem', padding: '0.8rem 1.8rem', fontSize: '1.1rem',
+                       cursor: 'pointer', fontWeight: 'bold', 
+                       transition: 'background-color 0.3s ease' 
+                    }}
+                    onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#A08C78')}
+                    onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#B8A088')}
+                  >
+                      + Criar Novo Chat
+                  </button>
+              </div>
+            )
           )}
         </div>
 

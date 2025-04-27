@@ -152,8 +152,8 @@ export default function CharacterSelectionForm({ onSubmit, token }: CharacterSel
                         <button
                             key={id}
                             type="button"
-                            className={`${styles.characterCard} ${selectedCharacter === id ? styles.selected : ''}`}
-                            onClick={() => handleCharacterChange(id)}
+                            className={`${styles.characterCard} ${selectedCharacter === character.name ? styles.selected : ''}`}
+                            onClick={() => handleCharacterChange(character.name)}
                         >
                             <h3 className={styles.characterName}>{character.name}</h3>
                             <p className={styles.characterDescription}>{character.description}</p>

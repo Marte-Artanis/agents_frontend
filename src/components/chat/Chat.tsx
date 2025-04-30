@@ -532,51 +532,52 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
       {/* Área Principal do Chat */}
       <div className={styles.chatContainer}> 
           {/* Renderização condicional da área principal */}
-          {chatDetails ? (
+          {activeChatId ? (
             <>
               {/* Cabeçalho do Chat - Usar chatDetails */}
               <div className={styles.chatHeader}>
-                {/* Botão Voltar Removido */}
                 <h1 className={styles.chatTitle}>
-                  {chatDetails?.chat_id == null || chatDetails?.chat_id?.startsWith('temp-')
+                  {chatDetails?.chat_id?.startsWith('new-')
                     ? 'Novo Chat'
-                    : `Conversa com ${chatDetails.character}`}
+                    : `Conversa com ${chatDetails?.character || 'Carregando...'}`}
                 </h1>
                 {/* Opcional: Mostrar detalhes do período/fator/idioma */}
-                 <p className={styles.historicalContext}>
-                     {chatDetails.historicalPeriod} {chatDetails.historicalFactor && `- ${chatDetails.historicalFactor}`} ({chatDetails.language})
-                 </p>
+                {chatDetails && (
+                  <p className={styles.historicalContext}>
+                    {chatDetails.historicalPeriod} {chatDetails.historicalFactor && `- ${chatDetails.historicalFactor}`} ({chatDetails.language})
+                  </p>
+                )}
               </div>
 
               {/* Mensagens */}
               <div className={styles.messagesContainer}>
-                 {messages.length === 0 && !isLoading && (
-                     <div className={styles.noMessages}>
-                         Envie a primeira mensagem para começar.
-                     </div>
-                 )}
-                 {messages.map((message, index) => (
-                    <div key={`${message.timestamp}-${index}`} className={`${styles.message} ${styles[message.role]}`}>
-                       <div className={`${styles.messageBubble} ${styles[message.role]}`}>
-                         <div className={styles.messageContent}>{message.content}</div>
-                         <span className={styles.messageTimestamp}>
-                           {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                         </span>
-                       </div>
+                {messages.length === 0 && !isLoading && (
+                  <div className={styles.noMessages}>
+                    Envie a primeira mensagem para começar.
+                  </div>
+                )}
+                {messages.map((message, index) => (
+                  <div key={`${message.timestamp}-${index}`} className={`${styles.message} ${styles[message.role]}`}>
+                    <div className={`${styles.messageBubble} ${styles[message.role]}`}>
+                      <div className={styles.messageContent}>{message.content}</div>
+                      <span className={styles.messageTimestamp}>
+                        {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
                     </div>
-                 ))}
-                 {/* Loading de resposta do assistente (isLoading E chatDetails existe) */}
-                 {isLoading && chatDetails && (
-                     <div className={`${styles.message} ${styles.assistant} ${styles.loading}`}>
-                         <div className={`${styles.messageBubble} ${styles.assistant}`}>
-                             <div className={styles.loadingDots}> <div/><div/><div/> </div>
-                         </div>
-                     </div>
-                 )}
+                  </div>
+                ))}
+                {/* Loading de resposta do assistente */}
+                {isLoading && (
+                  <div className={`${styles.message} ${styles.assistant} ${styles.loading}`}>
+                    <div className={`${styles.messageBubble} ${styles.assistant}`}>
+                      <div className={styles.loadingDots}> <div/><div/><div/> </div>
+                    </div>
+                  </div>
+                )}
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Input de Mensagem - Usar chatDetails no placeholder */}
+              {/* Input de Mensagem */}
               <form onSubmit={handleSubmit} className={styles.inputForm}>
                 <textarea
                   ref={textareaRef}
@@ -585,10 +586,10 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
-                      handleSubmit(e as any); // Cast necessário ou criar handler específico
+                      handleSubmit(e as any);
                     }
                   }}
-                  placeholder={`Converse com ${chatDetails.character}...`}
+                  placeholder={`Converse com ${chatDetails?.character || 'o personagem'}...`}
                   className={styles.messageInput}
                   disabled={isLoading}
                   rows={1}
@@ -598,10 +599,10 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
                   disabled={!inputMessage.trim() || isLoading}
                   className={styles.sendButton}
                 >
-                   {/* Ícone Enviar */} 
-                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
-                      <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-                   </svg>
+                  {/* Ícone Enviar */} 
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                  </svg>
                 </button>
               </form>
             </>
@@ -612,12 +613,12 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
                   <p style={{ fontSize: '1.2rem', marginBottom: '2rem', color: '#A0A0A0' }}>Selecione um chat na lista à esquerda ou crie um novo para começar.</p>
                   <button 
                     onClick={() => setIsModalOpen(true)} 
-                    className={styles.newChatButtonLarge} // Usar um estilo existente ou criar um novo
+                    className={styles.newChatButtonLarge}
                     style={{ 
-                       background: '#B8A088', color: '#1A1A1A', border: 'none',
-                       borderRadius: '0.5rem', padding: '0.8rem 1.8rem', fontSize: '1.1rem',
-                       cursor: 'pointer', fontWeight: 'bold', 
-                       transition: 'background-color 0.3s ease' 
+                      background: '#B8A088', color: '#1A1A1A', border: 'none',
+                      borderRadius: '0.5rem', padding: '0.8rem 1.8rem', fontSize: '1.1rem',
+                      cursor: 'pointer', fontWeight: 'bold', 
+                      transition: 'background-color 0.3s ease' 
                     }}
                     onMouseOver={(e) => (e.currentTarget.style.backgroundColor = '#A08C78')}
                     onMouseOut={(e) => (e.currentTarget.style.backgroundColor = '#B8A088')}

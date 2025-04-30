@@ -170,7 +170,7 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
           console.log('[useEffect activeChatId] Fetch successful. Data received:', data);
 
           // Atualizar o estado chatDetails mantendo os dados existentes se for um chat novo
-          if (chatDetails?.chat_id && !chatDetails.chat_id.startsWith('new-')) {
+          if (chatDetails?.chat_id === 'new' || (!chatDetails?.chat_id?.startsWith('new-') && chatDetails?.chat_id)) {
             const loadedDetails: ChatDetails = {
               chat_id: activeChatId,
               character: data.character || chatDetails?.character || 'Personagem Desconhecido',
@@ -250,9 +250,9 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
     }
 
     const userMessage: Message = {
-      role: 'user',
-      content: inputMessage,
-      timestamp: new Date().toISOString()
+        role: 'user',
+        content: inputMessage,
+        timestamp: new Date().toISOString()
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -264,105 +264,116 @@ export default function Chat({ chatId: initialChatId }: ChatProps) {
     setIsLoading(true);
 
     try {
-      // Construir payload com os dados do chat
-      const payload = {
-        character: chatDetails.character,
-        prompt: currentInput,
-        historical_period: chatDetails.historicalPeriod,
-        historical_factors: chatDetails.historicalFactor,
-        language: chatDetails.language,
-        chat_id: chatDetails.chat_id || undefined // Se vazio ou 'temp', será undefined
-      };
-
-      console.log("Sending message payload:", payload);
-      const response = await fetch('http://localhost:8001/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        setMessages(prev => prev.filter(msg => msg.timestamp !== userMessage.timestamp));
-        setInputMessage(currentInput);
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || `Erro ao enviar mensagem: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log("Received message response:", data);
-      
-      const assistantMessage: Message = {
-        role: 'assistant',
-        content: data.response,
-        timestamp: new Date().toISOString()
-      };
-
-      // Se for um chat novo (primeira mensagem), atualizar com o ID real
-      if (chatDetails?.chat_id === 'new' && data.chat_id) {
-        const newChatId = data.chat_id;
-        // Atualizar URL sem disparar o useEffect
-        const url = `/chat?chat_id=${newChatId}`;
-        window.history.replaceState({ path: url }, '', url);
-        
-        // Atualizar detalhes do chat mantendo os dados existentes
-        const updatedDetails = {
-          ...chatDetails,
-          chat_id: newChatId
-        };
-        setChatDetails(updatedDetails);
-        setActiveChatId(newChatId);
-        
-        // Atualizar na lista de chats (adicionar o novo)
-        setChats(prev => [
-          {
-            chat_id: newChatId,
-            character_name: chatDetails.character,
+        // Construir payload com os dados do chat
+        const payload = {
+            character: chatDetails.character,
+            prompt: currentInput,
             historical_period: chatDetails.historicalPeriod,
             historical_factors: chatDetails.historicalFactor,
             language: chatDetails.language,
-            last_updated: new Date().toISOString()
-          },
-          ...prev.filter(chat => chat.chat_id !== 'new')
-        ]);
-      }
+            chat_id: chatDetails.chat_id?.startsWith('new-') ? undefined : chatDetails.chat_id
+        };
 
-      // Adicionar resposta do assistente
-      setMessages(prev => [...prev, assistantMessage]);
+        console.log("Sending message payload:", payload);
+        const response = await fetch('http://localhost:8001/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            setMessages(prev => prev.filter(msg => msg.timestamp !== userMessage.timestamp));
+            setInputMessage(currentInput);
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.detail || `Erro ao enviar mensagem: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log("Received message response:", data);
+        
+        const assistantMessage: Message = {
+            role: 'assistant',
+            content: data.response,
+            timestamp: new Date().toISOString()
+        };
+
+        // Se for um chat novo, atualizar com o ID real
+        if (chatDetails.chat_id?.startsWith('new-') && data.chat_id) {
+            const newChatId = data.chat_id;
+            
+            // Atualizar URL sem disparar o useEffect
+            const url = `/chat?chat_id=${newChatId}`;
+            window.history.replaceState({ path: url }, '', url);
+            
+            // Atualizar detalhes do chat mantendo os dados existentes
+            const updatedDetails = {
+                ...chatDetails,
+                chat_id: newChatId
+            };
+            setChatDetails(updatedDetails);
+            setActiveChatId(newChatId);
+            
+            // Atualizar na lista de chats (substituir o temporário pelo real)
+            setChats(prev => [
+                {
+                    chat_id: newChatId,
+                    character_name: chatDetails.character,
+                    historical_period: chatDetails.historicalPeriod,
+                    historical_factors: chatDetails.historicalFactor,
+                    language: chatDetails.language,
+                    last_updated: new Date().toISOString()
+                },
+                ...prev.filter(chat => chat.chat_id !== chatDetails.chat_id)
+            ]);
+        }
+
+        // Adicionar resposta do assistente
+        setMessages(prev => [...prev, assistantMessage]);
 
     } catch (error) {
-      console.error('Erro no handleSubmit:', error);
+        console.error('Erro no handleSubmit:', error);
     } finally {
-      setIsLoading(false);
-      textareaRef.current?.focus();
+        setIsLoading(false);
+        textareaRef.current?.focus();
     }
   };
 
   // Criar um NOVO chat (via Modal)
   const handleNewChat = async (newChatFormData: ChatFormData) => {
     setIsModalOpen(false);
-    setChatDetails({
+
+    // Criar um ID temporário único para o novo chat
+    const tempChatId = `new-${Date.now()}`;
+
+    // Atualizar detalhes do chat
+    const newChatDetails = {
         ...newChatFormData,
-        chat_id: 'new' // id especial para novo chat
-    });
-    setActiveChatId('new');
+        chat_id: tempChatId
+    };
+    setChatDetails(newChatDetails);
+    setActiveChatId(tempChatId);
     setMessages([]);
 
-    // Adiciona o item temporário se ainda não existir
+    // Adicionar o novo chat à lista
     setChats(prev => {
-      if (prev.some(chat => chat.chat_id === 'new')) return prev;
-      return [
-        {
-          chat_id: 'new',
-          character_name: 'Novo Chat',
-          is_temporary: true,
-          last_updated: new Date().toISOString(),
-        },
-        ...prev
-      ];
+        const newChat = {
+            chat_id: tempChatId,
+            character_name: newChatFormData.character,
+            historical_period: newChatFormData.historicalPeriod,
+            historical_factors: newChatFormData.historicalFactor,
+            language: newChatFormData.language,
+            is_temporary: true,
+            last_updated: new Date().toISOString()
+        };
+        return [newChat, ...prev.filter(chat => !chat.is_temporary)];
     });
+
+    // Atualizar a URL sem recarregar a página
+    const url = `/chat?chat_id=${tempChatId}`;
+    window.history.replaceState({ path: url }, '', url);
   };
 
   // Função para deletar um chat

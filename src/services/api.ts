@@ -221,7 +221,7 @@ export const sendMessage = async (chatData: {
     historical_period: string;
     historical_factors: string;
     language: string;
-    session_id?: string;
+    chat_id?: string;
 }) => {
     try {
         const response = await authenticatedFetch(`${API_BASE_URL}/chat`, {

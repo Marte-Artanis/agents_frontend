@@ -241,6 +241,22 @@ export const sendMessage = async (chatData: {
 };
 
 // Função de Perfil
+export const getProfile = async () => {
+    try {
+        const response = await authenticatedFetch(`${API_BASE_URL}/users/profile`);
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            return { error: errorData.detail || 'Erro ao buscar perfil' };
+        }
+        
+        const data = await response.json();
+        return { data };
+    } catch (error) {
+        return { error: 'Erro ao buscar perfil' };
+    }
+};
+
 export const updateProfile = async (userData: {
     first_name: string;
     last_name: string;
@@ -248,10 +264,16 @@ export const updateProfile = async (userData: {
     new_password?: string;
 }) => {
     try {
-        const response = await authenticatedFetch(`${API_BASE_URL}/profile`, {
+        const response = await authenticatedFetch(`${API_BASE_URL}/users/profile`, {
             method: 'PUT',
             body: JSON.stringify(userData),
         });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            return { error: errorData.detail || 'Erro ao atualizar perfil' };
+        }
+        
         const data = await response.json();
         return { data };
     } catch (error) {

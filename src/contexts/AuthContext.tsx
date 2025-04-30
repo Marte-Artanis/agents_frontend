@@ -144,7 +144,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data, error } = await api.updateProfile(userData);
       if (error) return { error };
 
-      setUser(data);
+      // Atualiza os dados do usuário mantendo os campos que não foram alterados
+      setUser(prev => prev ? {
+        ...prev,
+        ...data
+      } : data);
+      
       return { success: true };
     } catch (error: any) {
       console.error('Erro ao atualizar perfil:', error);

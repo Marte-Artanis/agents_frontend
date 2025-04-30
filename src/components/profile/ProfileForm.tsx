@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { FaPencilAlt } from 'react-icons/fa';
 import styles from './ProfileForm.module.css';
+import * as api from '@/services/api';
 
 interface EditingFields {
   first_name: boolean;
@@ -10,7 +11,7 @@ interface EditingFields {
 }
 
 export default function ProfileForm() {
-  const { user } = useAuth();
+  const { user, updateProfile } = useAuth();
   
   console.log('Dados do usuário:', user);
   console.log('Data de nascimento:', user?.birth_date);
@@ -29,6 +30,30 @@ export default function ProfileForm() {
   });
   const [hasChanges, setHasChanges] = useState(false);
   const [error, setError] = useState('');
+  const [profileData, setProfileData] = useState(user);
+
+  // Busca os dados do perfil quando o componente é montado
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const { data, error } = await api.getProfile();
+        if (error) {
+          console.error('Erro ao buscar perfil:', error);
+          return;
+        }
+        setProfileData(data);
+        setFormData(prev => ({
+          ...prev,
+          first_name: data.first_name || '',
+          last_name: data.last_name || ''
+        }));
+      } catch (err) {
+        console.error('Erro ao buscar perfil:', err);
+      }
+    };
+
+    fetchProfile();
+  }, []);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
@@ -56,24 +81,42 @@ export default function ProfileForm() {
   };
 
   const handleSave = async () => {
-    if (editingFields.password && !formData.current_password) {
-      setError('Digite sua senha atual para fazer alterações');
-      return;
+    if (editingFields.password) {
+      // Validar se a senha atual foi fornecida
+      if (!formData.current_password) {
+        setError('Digite sua senha atual para fazer alterações');
+        return;
+      }
+
+      // Validar se a nova senha foi fornecida
+      if (!formData.new_password) {
+        setError('Digite a nova senha');
+        return;
+      }
+
+      // Validar se a nova senha é diferente da atual
+      if (formData.current_password === formData.new_password) {
+        setError('A nova senha deve ser diferente da senha atual');
+        return;
+      }
+
+      // Validar tamanho mínimo da senha
+      if (formData.new_password.length < 6) {
+        setError('A nova senha deve ter pelo menos 6 caracteres');
+        return;
+      }
     }
 
     try {
-      const response = await fetch('http://localhost:8001/profile', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify(formData)
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.detail || 'Erro ao atualizar perfil');
+      const { error: updateError } = await updateProfile(formData);
+      
+      if (updateError) {
+        // Tratamento específico para erro de senha incorreta
+        if (updateError.includes('Senha atual incorreta')) {
+          setError('A senha atual está incorreta');
+          return;
+        }
+        throw new Error(updateError);
       }
 
       setEditingFields({
@@ -81,6 +124,13 @@ export default function ProfileForm() {
         last_name: false,
         password: false
       });
+      setFormData(prev => ({
+        ...prev,
+        current_password: '',
+        new_password: '',
+        first_name: user?.first_name || '',
+        last_name: user?.last_name || ''
+      }));
       setHasChanges(false);
       setError('');
       
@@ -104,7 +154,7 @@ export default function ProfileForm() {
             <label className={styles.label}>Email</label>
             <input
               type="email"
-              value={user?.email || ''}
+              value={profileData?.email || ''}
               disabled
               className={styles.input}
             />
@@ -116,7 +166,7 @@ export default function ProfileForm() {
             <div className={styles.inputWithIcon}>
               <input
                 type="text"
-                value={editingFields.first_name ? formData.first_name : user?.first_name || ''}
+                value={editingFields.first_name ? formData.first_name : profileData?.first_name || ''}
                 onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
                 disabled={!editingFields.first_name}
                 className={`${styles.input} ${editingFields.first_name ? styles.inputEditing : ''}`}
@@ -138,7 +188,7 @@ export default function ProfileForm() {
             <div className={styles.inputWithIcon}>
               <input
                 type="text"
-                value={editingFields.last_name ? formData.last_name : user?.last_name || ''}
+                value={editingFields.last_name ? formData.last_name : profileData?.last_name || ''}
                 onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
                 disabled={!editingFields.last_name}
                 className={`${styles.input} ${editingFields.last_name ? styles.inputEditing : ''}`}
@@ -159,7 +209,7 @@ export default function ProfileForm() {
             <label className={styles.label}>Data de Nascimento</label>
             <input
               type="text"
-              value={user?.birth_date ? formatDate(user.birth_date) : ''}
+              value={profileData?.birth_date ? formatDate(profileData.birth_date) : ''}
               disabled
               className={styles.input}
             />

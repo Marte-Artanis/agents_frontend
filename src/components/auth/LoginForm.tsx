@@ -28,7 +28,7 @@ export function LoginForm() {
       if (loginError) {
         setError(loginError);
       } else if (success) {
-        router.push('/chat');
+        router.push('/characters');
       } else {
         setError('Erro desconhecido ao fazer login');
       }
